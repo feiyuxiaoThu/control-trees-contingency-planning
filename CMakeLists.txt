@@ -41,8 +41,8 @@ include_directories(${CMAKE_CURRENT_LIST_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
 
-file(GLOB SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE SOURCE_FILES "${PROJECT_SOURCE_DIR}/src/*.cpp")
 set(3RDPARTY matplotlib_cpp fmt::fmt spdlog::spdlog yaml-cpp::yaml-cpp)
-
+message(${SOURCE_FILES})
 add_executable(contingency_planning ${SOURCE_FILES})
 target_link_libraries(contingency_planning ${3RDPARTY})
