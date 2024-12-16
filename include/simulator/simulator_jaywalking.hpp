@@ -1,7 +1,7 @@
 /*
  * @Author: puyu <yuu.pu@foxmail.com>
  * @Date: 2024-12-15 00:25:00
- * @LastEditTime: 2024-12-15 22:56:51
+ * @LastEditTime: 2024-12-17 00:11:36
  * @FilePath: /dive-into-contingency-planning/include/simulator/simulator_jaywalking.hpp
  * Copyright 2024 puyu, All Rights Reserved.
  */
@@ -13,8 +13,6 @@
 
 class SimulatorJaywalking : public SimulatorBase {
   private:
-    Vehicle ego;
-    Pedestrian pedestrian;
 
   public:
     SimulatorJaywalking(/* args */);
@@ -22,6 +20,9 @@ class SimulatorJaywalking : public SimulatorBase {
 
     void refresh_scenario() override;
     void show_scenario() override;
+
+    Vehicle ego;
+    Pedestrian pedestrian;
 };
 
 

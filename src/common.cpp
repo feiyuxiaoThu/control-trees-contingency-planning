@@ -1,7 +1,7 @@
 /*
  * @Author: puyu <yuu.pu@foxmail.com>
  * @Date: 2024-12-15 23:26:43
- * @LastEditTime: 2024-12-15 23:45:34
+ * @LastEditTime: 2024-12-17 00:30:32
  * @FilePath: /dive-into-contingency-planning/src/common.cpp
  * Copyright 2024 puyu, All Rights Reserved.
  */
@@ -31,12 +31,12 @@ static bool imread(std::string filename, Outlook& outlook) {
     }
     getline(file, line);
     std::istringstream iss(line);
-    iss >> outlook.rows >> outlook.cols >> outlook.colors;
-    outlook.data.resize(outlook.rows * outlook.cols * outlook.colors);
+    iss >> outlook.rows >> outlook.cols >> outlook.channels;
+    outlook.data.resize(outlook.rows * outlook.cols * outlook.channels);
     int idx = 0;
     while (getline(file, line)) {
         std::istringstream iss(line);
-        for (int i = 0; i < outlook.colors; ++i) {
+        for (int i = 0; i < outlook.channels; ++i) {
             iss >> outlook.data[idx++];
         }
     }
@@ -50,11 +50,12 @@ Vehicle::Vehicle() {
     imread(vehicle_img_path, outlook);
     outlook.visual_height = 2.0;
     outlook.visual_width = 4.0;
+    cur_state.theta = M_PI_2;
 }
 
 Pedestrian::Pedestrian() {
     std::filesystem::path pedestrian_img_path = materials_path / "pedestrian_right.mat.txt";
     imread(pedestrian_img_path, outlook);
-    outlook.visual_height = 2.0;
+    outlook.visual_height = 2.5;
     outlook.visual_width = 2.0;
 }

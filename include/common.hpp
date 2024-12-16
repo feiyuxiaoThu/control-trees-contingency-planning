@@ -1,7 +1,7 @@
 /*
  * @Author: puyu <yuu.pu@foxmail.com>
  * @Date: 2024-12-15 00:22:05
- * @LastEditTime: 2024-12-16 00:36:06
+ * @LastEditTime: 2024-12-17 00:30:15
  * @FilePath: /dive-into-contingency-planning/include/common.hpp
  * Copyright 2024 puyu, All Rights Reserved.
  */
@@ -31,20 +31,24 @@ struct TrajectoryPoint {
 struct Trajectory {
     std::vector<TrajectoryPoint> trajectory;
     double probability;
+    uint16_t branch_index;
 };
 
 struct Outlook {
     int rows;
     int cols;
-    int colors;
+    int channels;
     std::vector<float> data;
     double visual_width;
     double visual_height;
 };
 
+enum class Intention {RIGHT, LEFT};
+
 struct Agent {
     TrajectoryPoint cur_state;
     Outlook outlook;
+    Intention intent;
 };
 
 struct Vehicle : public Agent {

@@ -1,7 +1,7 @@
 /*
  * @Author: puyu <yuu.pu@foxmail.com>
  * @Date: 2024-12-15 00:33:33
- * @LastEditTime: 2024-12-16 00:31:52
+ * @LastEditTime: 2024-12-17 01:12:45
  * @FilePath: /dive-into-contingency-planning/src/simulator/simulator_base.cpp
  * Copyright 2024 puyu, All Rights Reserved.
  */
@@ -18,14 +18,16 @@ void SimulatorBase::check10hz(std::chrono::steady_clock::time_point tbegin) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100 - used.count()));
 }
 
-void SimulatorBase::imshow(const Outlook& img, const std::vector<double>& state) {
+void SimulatorBase::imshow(const Outlook& img, const std::vector<double>& state,
+                           bool horizontal_flip /*= false*/) {
     static PyObject* imshow_func = nullptr;
     if (imshow_func == nullptr) {
         Py_Initialize();
         _import_array();
 
         std::filesystem::path source_file_path(__FILE__);
-        std::filesystem::path project_path = source_file_path.parent_path().parent_path().parent_path();
+        std::filesystem::path project_path =
+            source_file_path.parent_path().parent_path().parent_path();
         std::string script_path = project_path / "images" / "materials";
         PyRun_SimpleString("import sys");
         PyRun_SimpleString(fmt::format("sys.path.append('{}')", script_path).c_str());
@@ -43,9 +45,25 @@ void SimulatorBase::imshow(const Outlook& img, const std::vector<double>& state)
     }
 
     PyObject* vehicle_state = matplotlibcpp::detail::get_array(state);
-    npy_intp dims[3] = {img.rows, img.cols, img.colors};
+    npy_intp dims[3] = {img.rows, img.cols, img.channels};
 
     const float* imptr = &(img.data[0]);
+    // for a 100×125 resolution 4-channel image that takes about 100 us, can it be faster ?
+    float* flip_image = nullptr;
+    if (horizontal_flip == true) {
+        flip_image = new float[img.data.size()];
+        size_t idx = 0;
+        for (int i = 0; i < img.rows; ++i) {
+            for (int j = img.cols - 1; j >= 0; --j) {
+                flip_image[4 * idx] = img.data[4 * (i * img.cols + j)];
+                flip_image[4 * idx + 1] = img.data[4 * (i * img.cols + j) + 1];
+                flip_image[4 * idx + 2] = img.data[4 * (i * img.cols + j) + 2];
+                flip_image[4 * idx + 3] = img.data[4 * (i * img.cols + j) + 3];
+                ++idx;
+            }
+        }
+        imptr = flip_image;
+    }
 
     PyObject* args = PyTuple_New(4);
     PyTuple_SetItem(args, 0, PyArray_SimpleNewFromData(3, dims, NPY_FLOAT, (void*)imptr));
@@ -58,5 +76,8 @@ void SimulatorBase::imshow(const Outlook& img, const std::vector<double>& state)
     Py_DECREF(args);
     if (ret) {
         Py_DECREF(ret);
+    }
+    if (flip_image != nullptr) {
+        delete [] flip_image;
     }
 }
