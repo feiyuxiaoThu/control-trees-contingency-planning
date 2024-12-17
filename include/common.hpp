@@ -1,7 +1,7 @@
 /*
  * @Author: puyu <yuu.pu@foxmail.com>
  * @Date: 2024-12-15 00:22:05
- * @LastEditTime: 2024-12-17 00:30:15
+ * @LastEditTime: 2024-12-17 23:56:44
  * @FilePath: /dive-into-contingency-planning/include/common.hpp
  * Copyright 2024 puyu, All Rights Reserved.
  */
@@ -43,12 +43,11 @@ struct Outlook {
     double visual_height;
 };
 
-enum class Intention {RIGHT, LEFT};
+enum class PedestrianIntention {RIGHT, LEFT};
 
 struct Agent {
     TrajectoryPoint cur_state;
     Outlook outlook;
-    Intention intent;
 };
 
 struct Vehicle : public Agent {
@@ -60,6 +59,10 @@ struct Vehicle : public Agent {
 
 struct Pedestrian : public Agent {
     Pedestrian();
+
+    PedestrianIntention true_intent;
+    // index 0: RIGHT 1: LEFT
+    std::vector<double> intention_belief;
 };
 
 class TicToc {

@@ -1,7 +1,7 @@
 /*
  * @Author: puyu <yuu.pu@foxmail.com>
  * @Date: 2024-12-15 23:26:43
- * @LastEditTime: 2024-12-17 00:30:32
+ * @LastEditTime: 2024-12-17 23:51:03
  * @FilePath: /dive-into-contingency-planning/src/common.cpp
  * Copyright 2024 puyu, All Rights Reserved.
  */
@@ -58,4 +58,10 @@ Pedestrian::Pedestrian() {
     imread(pedestrian_img_path, outlook);
     outlook.visual_height = 2.5;
     outlook.visual_width = 2.0;
+
+    // default settings
+    true_intent = PedestrianIntention::RIGHT;
+    intention_belief.resize(2);
+    intention_belief[0] = 0.5;
+    intention_belief[1] = 0.5;
 }

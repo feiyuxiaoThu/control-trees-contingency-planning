@@ -1,7 +1,7 @@
 /*
  * @Author: puyu <yuu.pu@foxmail.com>
  * @Date: 2024-12-15 00:24:08
- * @LastEditTime: 2024-12-17 00:24:43
+ * @LastEditTime: 2024-12-18 00:48:09
  * @FilePath: /dive-into-contingency-planning/include/simulator/simulator_base.hpp
  * Copyright 2024 puyu, All Rights Reserved.
  */
@@ -16,8 +16,8 @@
 
 namespace plt = matplotlibcpp;
 
-constexpr long PLT_ROWS = 3;
-constexpr long PLT_COLS = 2;
+constexpr long WINDOW_ROWS = 3;
+constexpr long WINDOW_COLS = 2;
 
 class SimulatorBase {
   private:

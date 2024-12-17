@@ -1294,7 +1294,35 @@ bool bar(const std::vector<Numeric> &               y,
 
 
 template<typename Numeric>
-bool barh(const std::vector<Numeric> &x, const std::vector<Numeric> &y, std::string ec = "black", std::string ls = "-", double lw = 1.0, const std::map<std::string, std::string> &keywords = { }) {
+bool barh(std::vector<Numeric> x, std::vector<Numeric> y, double lw = 1.0, std::vector<std::string> colors = {},
+          const std::map<std::string, std::string> &keywords = { }) {
+    PyObject *xarray = detail::get_array(x);
+    PyObject *yarray = detail::get_array(y);
+
+    PyObject *kwargs = PyDict_New();
+
+    PyDict_SetItemString(kwargs, "lw", PyFloat_FromDouble(lw));
+    PyDict_SetItemString(kwargs, "color", detail::get_array(colors));
+
+    for (std::map<std::string, std::string>::const_iterator it = keywords.begin(); it != keywords.end(); ++it) {
+        PyDict_SetItemString(kwargs, it->first.c_str(), PyUnicode_FromString(it->second.c_str()));
+    }
+
+    PyObject *plot_args = PyTuple_New(2);
+    PyTuple_SetItem(plot_args, 0, xarray);
+    PyTuple_SetItem(plot_args, 1, yarray);
+
+    PyObject *res = PyObject_Call(detail::_interpreter::get().s_python_function_barh, plot_args, kwargs);
+
+    Py_DECREF(plot_args);
+    Py_DECREF(kwargs);
+    if (res) Py_DECREF(res);
+
+    return res;
+}
+
+template<typename Numeric>
+bool barh(std::vector<std::string> x, const std::vector<Numeric> &y, std::string ec = "black", std::string ls = "-", double lw = 1, std::map<std::string, std::string> keywords = { }) {
     PyObject *xarray = detail::get_array(x);
     PyObject *yarray = detail::get_array(y);
 
@@ -1320,7 +1348,6 @@ bool barh(const std::vector<Numeric> &x, const std::vector<Numeric> &y, std::str
 
     return res;
 }
-
 
 inline bool subplots_adjust(const std::map<std::string, double>& keywords = {})
 {
