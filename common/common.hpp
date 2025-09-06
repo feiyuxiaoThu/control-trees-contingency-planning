@@ -6,3 +6,15 @@
  */
 
 #pragma once
+
+struct State {
+    double x{0};
+    double y{0};
+    double yaw{0};
+    double velocity{0};
+};
+
+struct Control {
+    double accel{0};
+    double omega{0};
+};
