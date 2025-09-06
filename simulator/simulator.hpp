@@ -1,15 +1,12 @@
-/**
- * @file simulator.hpp
- * @author puyu <yu.pu@qq.com>
- * @date 2025/8/3 00:18
- * Copyright (c) puyu. All rights reserved.
+/*
+ * @Author: puyu yu.pu@qq.com
+ * @Date: 2025-08-03 00:18:40
+ * @LastEditors: puyu yu.pu@qq.com
+ * @LastEditTime: 2025-09-06 23:18:22
+ * @FilePath: /dive-into-contingency-planning/simulator/simulator.hpp
  */
 
 #pragma once
-
-#include "foxglove/foxglove.hpp"
-#include "foxglove/server.hpp"
-#include "common/common.hpp"
 
 #include <atomic>
 #include <condition_variable>
@@ -18,6 +15,12 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+
+#include "foxglove/foxglove.hpp"
+#include "foxglove/server.hpp"
+#include "common/common.hpp"
+#include "simulator/pedestrian.hpp"
+
 
 class Simulator {
   public:
@@ -39,17 +42,23 @@ class Simulator {
   private:
     void simulation_loop();  // 50Hz 仿真循环
     void load_config(const std::string& path);
-    void update_vehicles(double dt);  // 状态推进
+    void update_objects(double dt);  // 状态推进
     foxglove::schemas::SceneUpdate get_ego_scene_update();
 
   private:
-    std::unordered_map<std::string, State> vehicles_;  // 包含ego和npc车
+    std::unordered_map<std::string, State> objects_;   // 包含ego和npc车
+    State ego_state_;                                   // 自车状态
     Control ego_input_;                                // 自车控制输入
 
     std::string ego_id_ = "ego";     // 自车ID
-    std::shared_mutex state_mutex_;  // 保护 vehicles_ 和 ego_input_
+    std::shared_mutex state_mutex_;  // 保护 objects_ 和 ego_input_
+    double last_update_time_ = 0.0;
 
     std::thread sim_thread_;
     std::atomic<bool> running_{false};
     std::condition_variable_any cv_;
+
+    uint32_t n_pedestrians_{0};
+    double p_crossing_{0.15};
+    double lane_width_{3.5};
 };

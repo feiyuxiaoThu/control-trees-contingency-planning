@@ -19,6 +19,8 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -O3")
 endif ()
 
+find_package(spdlog REQUIRED)
+
 include_directories("/usr/include/eigen3")
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
@@ -35,6 +37,6 @@ add_executable(foxglove_test test/foxglove_test.cpp)
 target_sources(foxglove_test PRIVATE ${FOXGLOVE_SOURCES})
 target_link_libraries(foxglove_test PRIVATE ${foxglove_SOURCE_DIR}/lib/libfoxglove.a pthread dl)
 
-add_executable(planning_node planning_node.cpp simulator/simulator.cpp)
+add_executable(planning_node planning_node.cpp simulator/simulator.cpp simulator/pedestrian.cpp)
 target_sources(planning_node PRIVATE ${FOXGLOVE_SOURCES})
-target_link_libraries(planning_node PRIVATE ${foxglove_SOURCE_DIR}/lib/libfoxglove.a pthread dl)
+target_link_libraries(planning_node PRIVATE spdlog::spdlog ${foxglove_SOURCE_DIR}/lib/libfoxglove.a pthread dl)
