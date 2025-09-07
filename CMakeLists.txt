@@ -33,10 +33,20 @@ file(GLOB FOXGLOVE_SOURCES CONFIGURE_DEPENDS
         "${foxglove_SOURCE_DIR}/src/server/*.cpp"
 )
 
-add_executable(foxglove_test test/foxglove_test.cpp)
-target_sources(foxglove_test PRIVATE ${FOXGLOVE_SOURCES})
-target_link_libraries(foxglove_test PRIVATE ${foxglove_SOURCE_DIR}/lib/libfoxglove.a pthread dl)
+file(GLOB SIMULATOR_SOURCES CONFIGURE_DEPENDS "simulator/*.cpp")
+file(GLOB PLANNING_SOURCES CONFIGURE_DEPENDS "planning/*.cpp")
 
-add_executable(planning_node planning_node.cpp simulator/simulator.cpp simulator/pedestrian.cpp)
+add_library(simulator SHARED ${SIMULATOR_SOURCES})
+add_library(planning SHARED ${PLANNING_SOURCES})
+target_link_libraries(planning PUBLIC /usr/local/lib/libosqp.so)
+
+add_executable(planning_node planning_node.cpp)
 target_sources(planning_node PRIVATE ${FOXGLOVE_SOURCES})
-target_link_libraries(planning_node PRIVATE spdlog::spdlog ${foxglove_SOURCE_DIR}/lib/libfoxglove.a pthread dl)
+target_link_libraries(planning_node PRIVATE
+    simulator
+    planning
+    spdlog::spdlog
+    ${foxglove_SOURCE_DIR}/lib/libfoxglove.a
+    pthread
+    dl
+)

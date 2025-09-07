@@ -2,9 +2,9 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-06 19:25:09
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-07 14:56:26
+ * @LastEditTime: 2025-09-07 17:44:35
  * @FilePath: /dive-into-contingency-planning/simulator/pedestrian.hpp
- * Copyright (c) 2025 by puyu, All Rights Reserved. 
+ * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
 
 #pragma once
@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
+#include <shared_mutex>
 #include <vector>
 
 class Pedestrian {
@@ -24,7 +25,7 @@ class Pedestrian {
         last_update_time_ = TimeUtil::NowSeconds();
     }
 
-    virtual double crossing_probability(double now_s, double now_x) const = 0;
+    virtual double get_crossing_probability() const = 0;
     virtual void step(double now_s, double now_x) = 0;
     virtual bool is_forward_direction() const = 0;
 
@@ -74,7 +75,7 @@ class CrossingPedestrian : public Pedestrian {
 
     bool is_crossing(double time, double x);
 
-    double crossing_probability(double time, double x) const;
+    double get_crossing_probability() const;
 
     void step(double now_s, double now_x);
 
@@ -100,7 +101,7 @@ class NonCrossingPedestrian : public Pedestrian {
 
     bool is_non_crossing(double time, double x);
 
-    double crossing_probability(double time, double x) const;
+    double get_crossing_probability() const;
 
     void step(double now_s, double now_x);
 
@@ -120,19 +121,45 @@ class PedestrianObserver {
     foxglove::schemas::SceneUpdate observe_pedestrians(const State& car_position,
                                                        double lane_width) const;
 
-    std::vector<std::shared_ptr<Pedestrian>> pedestrians() const { return pedestrians_; }
+    // Return a copy of internal vector under shared lock.
+    std::vector<std::shared_ptr<Pedestrian>> pedestrians() const {
+        std::shared_lock lock(mutex_);
+        return pedestrians_;
+    }
 
-    std::shared_ptr<Pedestrian> pedestrian(std::size_t i) const { return pedestrians_[i]; }
+    std::shared_ptr<Pedestrian> pedestrian(std::size_t i) const {
+        std::shared_lock lock(mutex_);
+        return pedestrians_[i];
+    }
 
-    void erase(std::size_t i) { pedestrians_[i] = nullptr; }
+    void erase(std::size_t i) {
+        std::unique_lock lock(mutex_);
+        pedestrians_[i] = nullptr;
+    }
 
     void replace_pedestrian(std::size_t i, const std::shared_ptr<Pedestrian>& pedestrian) {
+        std::unique_lock lock(mutex_);
         pedestrians_[i] = pedestrian;
     }
 
     void step(const State& car_position);
 
+    // Return a thread-safe snapshot of pedestrians as const pointers so callers cannot
+    // mutate them. The snapshot is created under a shared lock to synchronize with writers.
+    std::vector<std::shared_ptr<const Pedestrian>> snapshot_pedestrians() const {
+        std::shared_lock lock(mutex_);
+        std::vector<std::shared_ptr<const Pedestrian>> out;
+        out.reserve(pedestrians_.size());
+        for (const auto& p : pedestrians_) {
+            if (p) {
+                out.push_back(std::static_pointer_cast<const Pedestrian>(p));
+            }
+        }
+        return out;
+    }
+
   private:
+    mutable std::shared_mutex mutex_;
     std::vector<std::shared_ptr<Pedestrian>> pedestrians_;
 };
 

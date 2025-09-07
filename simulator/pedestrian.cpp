@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-06 19:25:02
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-07 14:56:18
+ * @LastEditTime: 2025-09-07 16:57:05
  * @FilePath: /dive-into-contingency-planning/simulator/pedestrian.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved. 
  */
@@ -76,7 +76,7 @@ bool CrossingPedestrian::is_crossing(double time, double x) {
     return false;
 }
 
-double CrossingPedestrian::crossing_probability(double time, double x) const {
+double CrossingPedestrian::get_crossing_probability() const {
     if (state_ == PedestrianState::UNCERTAIN) {
         return p_;
     } else if (state_ == PedestrianState::MOVING) {
@@ -117,7 +117,7 @@ bool NonCrossingPedestrian::is_non_crossing(double time, double x) {
     return false;
 }
 
-double NonCrossingPedestrian::crossing_probability(double time, double x) const {
+double NonCrossingPedestrian::get_crossing_probability() const {
     if (state_ == PedestrianState::UNCERTAIN) {
         return p_;
     } else if (state_ == PedestrianState::MOVING) {
@@ -137,6 +137,8 @@ void NonCrossingPedestrian::step(double now_s, double now_x) {
 }
 
 void PedestrianObserver::step(const State& car_position) {
+    // take shared lock while iterating and calling step on each pedestrian
+    std::shared_lock lock(mutex_);
     for (const auto& pedestrian : pedestrians_) {
         if (pedestrian) {
             pedestrian->step(TimeUtil::NowSeconds(), car_position.x);
@@ -148,14 +150,14 @@ foxglove::schemas::SceneUpdate PedestrianObserver::observe_pedestrians(const Sta
                                                                        double lane_width) const {
     std::vector<foxglove::schemas::SceneEntity> pedestrian_entities;
 
+    std::shared_lock lock(mutex_);
     for (auto i = 0; i < pedestrians_.size(); ++i) {
         auto pedestrian = pedestrians_[i];
 
         if (pedestrian) {
             const auto position = pedestrian->get_position();
             const auto start_position = pedestrian->get_start_position();
-            double crossing_probability =
-                pedestrian->crossing_probability(TimeUtil::NowSeconds(), car_position.x);
+            double crossing_probability = pedestrian->get_crossing_probability();
 
             foxglove::schemas::SceneEntity entity;
             entity.id = "pedestrian_" + std::to_string(i);

@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:17:35
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-07 14:55:20
+ * @LastEditTime: 2025-09-07 16:05:49
  * @FilePath: /dive-into-contingency-planning/common/common.hpp
  * Copyright (c) 2025 by puyu, All Rights Reserved. 
  */
@@ -37,6 +37,12 @@ struct Control {
 struct Position2D {
     double x;
     double y;
+};
+
+struct TimeCostPair
+{
+    double planning_time;
+    double cost;
 };
 
 class TimeUtil {

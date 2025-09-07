@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:18:40
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-07 14:56:32
+ * @LastEditTime: 2025-09-08 00:01:56
  * @FilePath: /dive-into-contingency-planning/simulator/simulator.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved. 
  */
@@ -14,8 +14,10 @@
 
 Simulator::Simulator(const std::string& config_file) {
     n_pedestrians_ = 4;
-    p_crossing_ = 0.15;
+    p_crossing_ = 0.05;
     lane_width_ = 3.5;
+    ego_state_ = State{0, 0, 0, 5.0};
+    observer_ = std::make_shared<PedestrianObserver>(n_pedestrians_);
     spdlog::set_level(spdlog::level::debug);
 }
 
@@ -39,9 +41,10 @@ void Simulator::stop() {
     }
 }
 
-void Simulator::set_ego_control_input(const Control& input) {}
-
-State Simulator::get_ego_state() const { return State(); }
+void Simulator::set_ego_control_input(const Control& input) {
+    std::unique_lock lock(control_input_mutex_);
+    ego_control_input_ = input;
+}
 
 void Simulator::simulation_loop() {
     const auto start = std::chrono::steady_clock::now();
@@ -64,45 +67,54 @@ void Simulator::simulation_loop() {
     auto transform_channel =
         foxglove::schemas::FrameTransformChannel::create("/transform/map_to_baselink").value();
 
-    PedestrianObserver observer(n_pedestrians_);
-    ego_state_ = State{0, 0, 0, 5.0};
     auto next_tick = std::chrono::steady_clock::now();
     while (running_) {
         // purge old
-        for (auto i = 0; i < n_pedestrians_; ++i) {
-            auto pedestrian = observer.pedestrian(i);
+        for (uint32_t i = 0; i < n_pedestrians_; ++i) {
+            auto pedestrian = observer_->pedestrian(i);
             if (pedestrian && pedestrian->is_done()) {
-                observer.erase(i);
+                observer_->erase(i);
                 spdlog::debug("pedestrian {} done", pedestrian->id());
             }
         }
-        // recreate new
-        for (auto i = 0; i < n_pedestrians_; ++i) {
-            if (!observer.pedestrian(i)) {
-                auto pedestrian = generate_new_pedestrian(p_crossing_, i, lane_width_, ego_state_);
-                observer.replace_pedestrian(i, pedestrian);
-                spdlog::debug("car_x: {}", ego_state_.x);
-                spdlog::debug("pedestrian {} created start_x: {} start_y: {}", pedestrian->id(),
-                              pedestrian->get_start_position().x,
-                              pedestrian->get_start_position().y);
-                break;
+        {
+            std::shared_lock lock(ego_state_mutex_);
+            // recreate new
+            for (uint32_t i = 0; i < n_pedestrians_; ++i) {
+                if (!observer_->pedestrian(i)) {
+                    auto pedestrian =
+                        generate_new_pedestrian(p_crossing_, i, lane_width_, ego_state_);
+                    observer_->replace_pedestrian(i, pedestrian);
+                    spdlog::debug("car_x: {}", ego_state_.x);
+                    spdlog::debug("pedestrian {} created start_x: {} start_y: {}", pedestrian->id(),
+                                  pedestrian->get_start_position().x,
+                                  pedestrian->get_start_position().y);
+                    break;
+                }
             }
+            observer_->step(ego_state_);
         }
-        observer.step(ego_state_);
-        auto pedestrian_update = observer.observe_pedestrians(ego_state_, lane_width_);
+        auto pedestrian_update = observer_->observe_pedestrians(ego_state_, lane_width_);
         const double current_time_sec = TimeUtil::NowSeconds();
+        Control local_ctrl{0., 0.};
+        {
+            std::shared_lock control_lock(control_input_mutex_);
+            local_ctrl = ego_control_input_;
+        } 
         if (last_update_time_ > 0.1) {
             const double dt = current_time_sec - last_update_time_;
+            std::unique_lock lock(ego_state_mutex_);
             ego_state_.x += ego_state_.velocity * std::cos(ego_state_.yaw) * dt;
             ego_state_.y += ego_state_.velocity * std::sin(ego_state_.yaw) * dt;
-            ego_state_.yaw += ego_input_.omega * dt;
-            ego_state_.velocity += ego_input_.accel * dt;
+            ego_state_.yaw += local_ctrl.omega * dt;
+            ego_state_.velocity += local_ctrl.accel * dt;
         }
         last_update_time_ = current_time_sec;
 
-        const auto ego_car_scene_update = get_ego_scene_update();
-        const auto lane_scene_update = get_lane_scene_update();
-        const auto ego_pose = ego_state_.to_pose();
+        const auto ego_pose = get_ego_state().to_pose();
+        const auto ego_car_scene_update = get_ego_scene_update(ego_pose);
+        const auto lane_scene_update = get_lane_scene_update(ego_pose);
+
         foxglove::schemas::FrameTransform transform;
         transform.timestamp = TimeUtil::NowTimestamp();
         transform.parent_frame_id = "map";
@@ -125,12 +137,13 @@ void Simulator::simulation_loop() {
     }
 }
 
-foxglove::schemas::SceneUpdate Simulator::get_ego_scene_update() {
+foxglove::schemas::SceneUpdate Simulator::get_ego_scene_update(
+    const foxglove::schemas::Pose& ego_pose) {
     foxglove::schemas::ModelPrimitive ego_model;
     ego_model.url =
-        "https://raw.githubusercontent.com/PuYuuu/toy-example-of-iLQR/foxglove/images/materials/"
-        "lexus.glb";
-    ego_model.pose = ego_state_.to_pose();
+        "https://raw.githubusercontent.com/PuYuuu/dive-into-contingency-planning/develop/assets/"
+        "mesh/lexus.glb";
+    ego_model.pose = ego_pose;
     ego_model.scale = {1, 1, 1};
     ego_model.media_type = "model/gltf-binary";
     ego_model.override_color = false;
@@ -148,8 +161,9 @@ foxglove::schemas::SceneUpdate Simulator::get_ego_scene_update() {
     return ego_car_scene_update;
 }
 
-foxglove::schemas::SceneUpdate Simulator::get_lane_scene_update() {
-    const double ego_position_x = ego_state_.x;
+foxglove::schemas::SceneUpdate Simulator::get_lane_scene_update(
+    const foxglove::schemas::Pose& ego_pose) {
+    double ego_position_x = ego_pose.position.has_value() ? ego_pose.position->x : 0.0;
     foxglove::schemas::SceneUpdate lane_scene_update;
     foxglove::schemas::SceneEntity lane_entity;
     lane_entity.id = "lane_lines";
@@ -200,4 +214,18 @@ foxglove::schemas::SceneUpdate Simulator::get_lane_scene_update() {
     lane_scene_update.entities.push_back(lane_entity);
 
     return lane_scene_update;
+}
+
+State Simulator::get_ego_state() const {
+    std::shared_lock lock(ego_state_mutex_);
+    return ego_state_;
+}
+
+std::vector<std::shared_ptr<const Pedestrian>> Simulator::get_pedestrians() const {
+    if (!observer_) {
+        return {};
+    }
+    auto snapshot = observer_->snapshot_pedestrians();
+
+    return snapshot;
 }
