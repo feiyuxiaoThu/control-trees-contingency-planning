@@ -2,8 +2,9 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:17:35
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-06 20:48:10
+ * @LastEditTime: 2025-09-07 14:55:20
  * @FilePath: /dive-into-contingency-planning/common/common.hpp
+ * Copyright (c) 2025 by puyu, All Rights Reserved. 
  */
 
 #pragma once

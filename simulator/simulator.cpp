@@ -2,14 +2,15 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:18:40
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-07 01:53:20
+ * @LastEditTime: 2025-09-07 14:56:32
  * @FilePath: /dive-into-contingency-planning/simulator/simulator.cpp
+ * Copyright (c) 2025 by puyu, All Rights Reserved. 
  */
 
 #include "simulator.hpp"
 
-#include <yaml-cpp/yaml.h>
 #include <spdlog/spdlog.h>
+#include <yaml-cpp/yaml.h>
 
 Simulator::Simulator(const std::string& config_file) {
     n_pedestrians_ = 4;
@@ -56,12 +57,16 @@ void Simulator::simulation_loop() {
     auto loop_runtime_channel =
         foxglove::RawChannel::create("/simulation/runtime_secs", "json").value();
     auto ego_car_channel = foxglove::schemas::SceneUpdateChannel::create("/makers/ego_car").value();
-    auto pedestrians_channel = foxglove::schemas::SceneUpdateChannel::create("/makers/pedestrians").value();
+    auto pedestrians_channel =
+        foxglove::schemas::SceneUpdateChannel::create("/makers/pedestrians").value();
+    auto lane_lines_channel =
+        foxglove::schemas::SceneUpdateChannel::create("/makers/lane_lines").value();
     auto transform_channel =
         foxglove::schemas::FrameTransformChannel::create("/transform/map_to_baselink").value();
 
     PedestrianObserver observer(n_pedestrians_);
-    ego_state_ = State{0, 0, 0, 3.0};
+    ego_state_ = State{0, 0, 0, 5.0};
+    auto next_tick = std::chrono::steady_clock::now();
     while (running_) {
         // purge old
         for (auto i = 0; i < n_pedestrians_; ++i) {
@@ -96,6 +101,7 @@ void Simulator::simulation_loop() {
         last_update_time_ = current_time_sec;
 
         const auto ego_car_scene_update = get_ego_scene_update();
+        const auto lane_scene_update = get_lane_scene_update();
         const auto ego_pose = ego_state_.to_pose();
         foxglove::schemas::FrameTransform transform;
         transform.timestamp = TimeUtil::NowTimestamp();
@@ -107,12 +113,15 @@ void Simulator::simulation_loop() {
         auto dur = std::chrono::steady_clock::now() - start;
         const float elapsed_seconds = std::chrono::duration<float>(dur).count();
         std::string elapsed_msg = "{\"elapsed\": " + std::to_string(elapsed_seconds) + "}";
-        loop_runtime_channel.log(reinterpret_cast<const std::byte*>(elapsed_msg.data()), elapsed_msg.size());
+        loop_runtime_channel.log(reinterpret_cast<const std::byte*>(elapsed_msg.data()),
+                                 elapsed_msg.size());
         ego_car_channel.log(ego_car_scene_update);
         pedestrians_channel.log(pedestrian_update);
+        lane_lines_channel.log(lane_scene_update);
         transform_channel.log(transform);
-        
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));  // 50Hz
+
+        next_tick += std::chrono::milliseconds(20);
+        std::this_thread::sleep_until(next_tick);
     }
 }
 
@@ -137,4 +146,58 @@ foxglove::schemas::SceneUpdate Simulator::get_ego_scene_update() {
     ego_car_scene_update.entities.push_back(ego_car_entity);
 
     return ego_car_scene_update;
+}
+
+foxglove::schemas::SceneUpdate Simulator::get_lane_scene_update() {
+    const double ego_position_x = ego_state_.x;
+    foxglove::schemas::SceneUpdate lane_scene_update;
+    foxglove::schemas::SceneEntity lane_entity;
+    lane_entity.id = "lane_lines";
+    lane_entity.frame_id = "map";
+    lane_entity.timestamp = TimeUtil::NowTimestamp();
+    lane_entity.lifetime = foxglove::schemas::Duration{0, 100000000};
+
+    foxglove::schemas::Pose lane_pose =
+        foxglove::schemas::Pose{.position = foxglove::schemas::Vector3{0.0, 0.0, 0.0},
+                                .orientation = foxglove::schemas::Quaternion{0.0, 0.0, 0.0, 1.0}};
+    foxglove::schemas::Color lane_color = foxglove::schemas::Color{1.0, 1.0, 1.0, 1.0};
+
+    foxglove::schemas::LinePrimitive left_line;
+    left_line.type = foxglove::schemas::LinePrimitive::LineType::LINE_STRIP;
+    left_line.pose = lane_pose;
+    left_line.thickness = 0.12;
+    left_line.scale_invariant = false;
+    left_line.color = lane_color;
+    foxglove::schemas::Point3 start_point{ego_position_x - 20.0, lane_width_ / 2.0, 0.0};
+    foxglove::schemas::Point3 end_point{ego_position_x + 100.0, lane_width_ / 2.0, 0.0};
+    left_line.points.push_back(start_point);
+    left_line.points.push_back(end_point);
+    lane_entity.lines.push_back(left_line);
+
+    foxglove::schemas::LinePrimitive right_line;
+    right_line.type = foxglove::schemas::LinePrimitive::LineType::LINE_STRIP;
+    right_line.pose = lane_pose;
+    right_line.thickness = 0.12;
+    right_line.scale_invariant = false;
+    right_line.color = lane_color;
+    start_point = foxglove::schemas::Point3{ego_position_x - 20.0, -lane_width_ / 2.0, 0.0};
+    end_point = foxglove::schemas::Point3{ego_position_x + 100.0, -lane_width_ / 2.0, 0.0};
+    right_line.points.push_back(start_point);
+    right_line.points.push_back(end_point);
+    lane_entity.lines.push_back(right_line);
+
+    foxglove::schemas::LinePrimitive center_line;
+    center_line.type = foxglove::schemas::LinePrimitive::LineType::LINE_LIST;
+    center_line.pose = lane_pose;
+    center_line.thickness = 0.08;
+    center_line.scale_invariant = false;
+    center_line.color = lane_color;
+    for (double x = ego_position_x - 20.0; x < ego_position_x + 100.0; x += 5.0) {
+        foxglove::schemas::Point3 point{x, 0.0, 0.0};
+        center_line.points.push_back(point);
+    }
+    lane_entity.lines.push_back(center_line);
+    lane_scene_update.entities.push_back(lane_entity);
+
+    return lane_scene_update;
 }

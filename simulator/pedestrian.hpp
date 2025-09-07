@@ -1,3 +1,12 @@
+/*
+ * @Author: puyu yu.pu@qq.com
+ * @Date: 2025-09-06 19:25:09
+ * @LastEditors: puyu yu.pu@qq.com
+ * @LastEditTime: 2025-09-07 14:56:26
+ * @FilePath: /dive-into-contingency-planning/simulator/pedestrian.hpp
+ * Copyright (c) 2025 by puyu, All Rights Reserved. 
+ */
+
 #pragma once
 
 #include "common/common.hpp"
@@ -29,6 +38,19 @@ class Pedestrian {
 
     bool is_uncertain() const { return state_ == PedestrianState::UNCERTAIN; }
 
+    std::string state_string() const {
+        switch (state_) {
+            case PedestrianState::UNCERTAIN:
+                return "UNCERTAIN";
+            case PedestrianState::MOVING:
+                return "MOVING";
+            case PedestrianState::DONE:
+                return "DONE";
+            default:
+                return "UNKNOWN";
+        }
+    }
+
   protected:
     enum class PedestrianState { UNCERTAIN = 0, MOVING, DONE } state_{PedestrianState::UNCERTAIN};
 
@@ -45,7 +67,7 @@ class CrossingPedestrian : public Pedestrian {
         : Pedestrian(id, start_position),
           p_(p),
           crossing_x_(crossing_x),
-          crossing_duration_(4.0),
+          crossing_duration_(5.0),
           forward_(forward) {}
 
     bool is_forward_direction() const { return forward_; }
