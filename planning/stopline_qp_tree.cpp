@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-07 16:00:13
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-07 22:23:07
+ * @LastEditTime: 2025-09-13 15:49:10
  * @FilePath: /dive-into-contingency-planning/planning/stopline_qp_tree.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -45,7 +45,7 @@ void StopLineQPTree::update_stopline(const State& ego_current_state,
               [](const Stopline& a, const Stopline& b) { return a.x < b.x; });
 
     for (auto i = 0; i < stoplines_.size(); ++i) {
-        spdlog::info("{}--th stopline {}", i, stoplines_[i].x);
+        spdlog::info("{}--th stopline {:.2f} prob {:.2f}", i, stoplines_[i].x, stoplines_[i].p);
     }
 
     create_tree();
@@ -66,7 +66,6 @@ TimeCostPair StopLineQPTree::plan(const State& current_state,
     // CONSTRAINT
     Constraints k(tree_->n_steps, tree_->varss);
     for (auto i = 0; i < (n_branches_ > 1 ? n_branches_ - 1 : 1); ++i) {
-        // ROS_INFO_STREAM( i << " th stopline " << stoplines_[i].x);
         double xmax = 0;
         // far behind
         if (stoplines_[i].p < 0.01 || current_state.x > stoplines_[i].x + 1) {
@@ -75,13 +74,8 @@ TimeCostPair StopLineQPTree::plan(const State& current_state,
             xmax = stoplines_[i].x - current_state.x;
         }
 
-        k.add_constraint(i, Eigen::Vector2d(xmax, 0),
-                         Eigen::Vector2d(1, 0));  // xmax on branch 0, all indices
+        k.add_constraint(i, Eigen::Vector2d(xmax, 0), Eigen::Vector2d(1, 0));
     }
-    // v is zero on branch 0, last index
-
-    /// SOLVER
-    // ROS_INFO( "solve.." );
 
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -90,15 +84,19 @@ TimeCostPair StopLineQPTree::plan(const State& current_state,
     auto end = std::chrono::high_resolution_clock::now();
     float execution_time_us =
         std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    spdlog::info("[tree qp] execution time (ms):{}", execution_time_us / 1000);
+    spdlog::info("[planning] execution time (ms):{}", execution_time_us / 1000);
 
-    debug(U, current_state);
+    if (std::fabs(U[1] - U[0]) > 0.5) {
+        spdlog::warn("[planning] High Jerk at trajectory start!!!");
+        spdlog::info("[planning] x: {} v: {}", current_state.x, current_state.velocity);
+    }
 
     optimization_error_ = !validate_and_save_solution(U, current_state);
 
     if (optimization_error_) {
-        spdlog::info("Generate control for emergency brake, o.x: {} o.v: {} v_desired_: {}",
-                     current_state.x, current_state.velocity, v_desired_);
+        spdlog::info(
+            "[planning] Generate control for emergency brake, o.x: {} o.v: {} v_desired_: {}",
+            current_state.x, current_state.velocity, v_desired_);
 
         const auto& U = emergency_brake(current_state.velocity, *tree_, steps_, u_min_);
 
@@ -109,14 +107,16 @@ TimeCostPair StopLineQPTree::plan(const State& current_state,
         }
     }
 
-    spdlog::info("speed: {} costs: {}", U_sol_[0], model_.cost(x0_, U_sol_[0], xd));
+    double solution_cost = model_.cost(x0_, U_sol_, xd);
+    spdlog::info("[planning] costs: {:.2f} speed: {:.2f} accel: {:.2f}", solution_cost,
+                 current_state.velocity, U_sol_[0]);
 
-    return {execution_time_us / 1000000, model_.cost(x0_, U_sol_[0], xd)};
+    return {execution_time_us / 1000000, solution_cost};
 }
 
 bool StopLineQPTree::validate_and_save_solution(const Eigen::VectorXd& U, const State& state) {
     if (U.rows()) {
-        // ROS_INFO( "Solved :)" );
+        // spdlog::info("Solved :)");
         auto x0 = x0_;
         x0(0) += state.x;
 
@@ -130,10 +130,10 @@ bool StopLineQPTree::validate_and_save_solution(const Eigen::VectorXd& U, const 
 
             return true;
         } else {
-            spdlog::warn("Optimization succeeded but invalid trajectory");
+            spdlog::warn("[planning] Optimization succeeded but invalid trajectory");
         }
     } else {
-        spdlog::warn("Solution infeasible :(");
+        spdlog::error("[planning] Solution infeasible :(");
     }
 
     return false;
@@ -193,8 +193,6 @@ bool StopLineQPTree::validate_and_save_solution(const Eigen::VectorXd& U, const 
 // }
 
 void StopLineQPTree::create_tree() {
-    spdlog::info("create tree..");
-
     if (n_branches_ == 1) {
         tree_ = TreePb::refined(std::make_shared<Tree1Branch>(), steps_);
     } else {
@@ -203,6 +201,19 @@ void StopLineQPTree::create_tree() {
         assert(ps.size() == n_branches_ - 1 && "discrepancy in number of branches in control tree");
 
         tree_ = TreePb::refined(std::make_shared<TreeNBranches>(ps), steps_);
+    }
+
+    // debug info
+    size_t branch_count = 0;
+    spdlog::debug("[planning] tree n_steps: {}", tree_->n_steps);
+    spdlog::debug("[planning] tree varss:");
+    for (const auto& vars : tree_->varss) {
+        spdlog::debug("[planning] branch-{}: {}", branch_count++, fmt::join(vars, ", "));
+    }
+    branch_count = 0;
+    spdlog::debug("[planning] tree scaless:");
+    for (const auto& scales : tree_->scaless) {
+        spdlog::debug("[planning] branch-{}: {:.2f}", branch_count++, fmt::join(scales, ", "));
     }
 
     assert(tree_->scaless.size() == n_branches_ &&
@@ -214,36 +225,24 @@ bool StopLineQPTree::valid(const Eigen::VectorXd& U, const Eigen::VectorXd& X) c
 
     for (auto i = 0; i < U.rows(); ++i) {
         if (std::isnan(U[i])) {
-            spdlog::warn("nan in U vector!");
+            spdlog::error("[planning] nan in U vector!");
             return false;
         }
 
         if (!(u_min_ - eps <= U[i] && U[i] <= u_max_ + eps)) {
-            spdlog::warn("control out of bounds!: {}", U[i]);
+            spdlog::error("[planning] control out of bounds!: {}", U[i]);
             return false;
         }
     }
 
     for (auto i = 0; i < X.rows(); ++i) {
         if (std::isnan(X[i])) {
-            spdlog::warn("nan in X vector!");
+            spdlog::error("[planning] nan in X vector!");
             return false;
         }
     }
 
     return true;
-}
-
-void StopLineQPTree::debug(const Eigen::VectorXd& U, const State& ego_current_state) const {
-    double jerk = 0;
-    for (auto i = 1; i < 2; ++i) {
-        jerk = U[i] - U[i - 1];
-
-        if (fabs(jerk) > 0.5) {
-            spdlog::warn("High Jerk at trajectory start!!!");
-            spdlog::info("x: {} v: {}", ego_current_state.x, ego_current_state.velocity);
-        }
-    }
 }
 
 Eigen::VectorXd emergency_brake(const double v, const TreePb& tree, int steps_per_phase, double u) {

@@ -20,6 +20,7 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
 endif ()
 
 find_package(spdlog REQUIRED)
+find_package(OsqpEigen REQUIRED)
 
 include_directories("/usr/include/eigen3")
 include_directories(${PROJECT_SOURCE_DIR})
@@ -38,7 +39,7 @@ file(GLOB PLANNING_SOURCES CONFIGURE_DEPENDS "planning/*.cpp")
 
 add_library(simulator SHARED ${SIMULATOR_SOURCES})
 add_library(planning SHARED ${PLANNING_SOURCES})
-target_link_libraries(planning PUBLIC /usr/local/lib/libosqp.so)
+target_link_libraries(planning PUBLIC OsqpEigen::OsqpEigen)
 
 add_executable(planning_node planning_node.cpp)
 target_sources(planning_node PRIVATE ${FOXGLOVE_SOURCES})

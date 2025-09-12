@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:18:40
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-08 00:01:56
+ * @LastEditTime: 2025-09-13 15:02:27
  * @FilePath: /dive-into-contingency-planning/simulator/simulator.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved. 
  */
@@ -18,7 +18,6 @@ Simulator::Simulator(const std::string& config_file) {
     lane_width_ = 3.5;
     ego_state_ = State{0, 0, 0, 5.0};
     observer_ = std::make_shared<PedestrianObserver>(n_pedestrians_);
-    spdlog::set_level(spdlog::level::debug);
 }
 
 Simulator::~Simulator() { stop(); }

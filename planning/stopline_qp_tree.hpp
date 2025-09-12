@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-07 16:00:17
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-07 23:29:19
+ * @LastEditTime: 2025-09-13 14:52:43
  * @FilePath: /dive-into-contingency-planning/planning/stopline_qp_tree.hpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -12,7 +12,7 @@
 #include "common/common.hpp"
 #include "common/control_tree.hpp"
 #include "planning/mpc_model.hpp"
-#include "planning/qp_tree_problem_osqp.hpp"
+#include "planning/qp_tree_solver_osqp.hpp"
 #include "simulator/pedestrian.hpp"
 
 struct Stopline {
@@ -22,7 +22,7 @@ struct Stopline {
 
 class StopLineQPTree {
   public:
-    StopLineQPTree(int n_pedestrians, int steps_per_phase);
+    StopLineQPTree(int n_branches, int steps_per_phase);
 
     void set_desired_speed(double desired_speed) { v_desired_ = desired_speed; }
 
@@ -42,7 +42,6 @@ class StopLineQPTree {
   private:
     void create_tree();
     bool valid(const Eigen::VectorXd& U, const Eigen::VectorXd& X) const;
-    void debug(const Eigen::VectorXd& U, const State& ego_current_state) const;
 
   private:
     // params
@@ -58,7 +57,7 @@ class StopLineQPTree {
     // tree
     std::shared_ptr<TreePb> tree_;
     MPCModel model_;
-    QP_tree_problem_OSQP solver_;
+    QPTreeSolverOSQP solver_;
 
     // results
     Eigen::Vector2d x0_;
