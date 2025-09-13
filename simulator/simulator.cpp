@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:18:40
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-13 15:02:27
+ * @LastEditTime: 2025-09-13 20:23:43
  * @FilePath: /dive-into-contingency-planning/simulator/simulator.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved. 
  */
@@ -11,6 +11,7 @@
 
 #include <spdlog/spdlog.h>
 #include <yaml-cpp/yaml.h>
+#include <google/protobuf/descriptor.pb.h>
 
 Simulator::Simulator(const std::string& config_file) {
     n_pedestrians_ = 4;
@@ -63,8 +64,24 @@ void Simulator::simulation_loop() {
         foxglove::schemas::SceneUpdateChannel::create("/makers/pedestrians").value();
     auto lane_lines_channel =
         foxglove::schemas::SceneUpdateChannel::create("/makers/lane_lines").value();
+    auto trajectory_channel =
+        foxglove::schemas::SceneUpdateChannel::create("/makers/trajectory").value();
     auto transform_channel =
         foxglove::schemas::FrameTransformChannel::create("/transform/map_to_baselink").value();
+
+    auto descriptor = planning::protos::PlanningInfo::descriptor();
+    foxglove::Schema schema;
+    schema.encoding = "protobuf";
+    schema.name = descriptor->full_name();
+    // Create a FileDescriptorSet containing our message descriptor
+    google::protobuf::FileDescriptorSet file_descriptor_set;
+    const google::protobuf::FileDescriptor* file_descriptor = descriptor->file();
+    file_descriptor->CopyTo(file_descriptor_set.add_file());
+    std::string serialized_descriptor = file_descriptor_set.SerializeAsString();
+    schema.data = reinterpret_cast<const std::byte*>(serialized_descriptor.data());
+    schema.data_len = serialized_descriptor.size();
+    auto planning_info_channel = 
+        foxglove::RawChannel::create("/planning_info", "protobuf", std::move(schema)).value();
 
     auto next_tick = std::chrono::steady_clock::now();
     while (running_) {
@@ -130,6 +147,16 @@ void Simulator::simulation_loop() {
         pedestrians_channel.log(pedestrian_update);
         lane_lines_channel.log(lane_scene_update);
         transform_channel.log(transform);
+        if (planning_info_updated_.load()) {
+            std::shared_lock lock(planning_info_mutex_);
+            std::string debug_info_data = planning_info_.SerializeAsString();
+            planning_info_channel.log(reinterpret_cast<const std::byte*>(debug_info_data.data()),
+                                      debug_info_data.size());
+            const auto traj_scene_update = get_trajectory_scene_update();
+            trajectory_channel.log(traj_scene_update);
+
+            planning_info_updated_.store(false);
+        }
 
         next_tick += std::chrono::milliseconds(20);
         std::this_thread::sleep_until(next_tick);
@@ -215,6 +242,52 @@ foxglove::schemas::SceneUpdate Simulator::get_lane_scene_update(
     return lane_scene_update;
 }
 
+foxglove::schemas::SceneUpdate Simulator::get_trajectory_scene_update(void) const {
+    foxglove::schemas::SceneUpdate traj_scene_update;
+    foxglove::schemas::SceneEntity traj_entity;
+    traj_entity.id = "trajectory";
+    traj_entity.frame_id = "map";
+    traj_entity.timestamp = TimeUtil::NowTimestamp();
+    traj_entity.lifetime = foxglove::schemas::Duration{0, 200000000};
+
+    foxglove::schemas::Pose traj_pose =
+        foxglove::schemas::Pose{.position = foxglove::schemas::Vector3{0.0, 0.0, 0.0},
+                                .orientation = foxglove::schemas::Quaternion{0.0, 0.0, 0.0, 1.0}};
+    foxglove::schemas::Color traj_color = foxglove::schemas::Color{0.38, 0.8, 1.0, 0.9};
+
+    {
+        std::shared_lock lock(planning_info_mutex_);
+        size_t max_prob_idx = 0;
+        double max_prob = 0.0;
+        for (size_t idx = 0; idx < planning_info_.solution_size(); ++idx) {
+            if (planning_info_.solution(idx).probability() > max_prob) {
+                max_prob = planning_info_.solution(idx).probability();
+                max_prob_idx = idx;
+            }
+        }
+        if (planning_info_.solution_size() > 0) {
+            const auto& speed_profile = planning_info_.solution(max_prob_idx);
+            foxglove::schemas::LinePrimitive traj_line;
+            traj_line.type = foxglove::schemas::LinePrimitive::LineType::LINE_STRIP;
+            traj_line.pose = traj_pose;
+            traj_line.thickness = 1.0;
+            traj_line.scale_invariant = false;
+            traj_line.color = traj_color;
+            for (int i = 0; i < speed_profile.points_size(); ++i) {
+                const auto& sp = speed_profile.points(i);
+                if (sp.t() >= 4.5) {
+                    break;
+                }
+                foxglove::schemas::Point3 point{sp.x(), sp.y(), 0.0};
+                traj_line.points.push_back(point);
+            }
+            traj_entity.lines.push_back(traj_line);
+        }
+    }
+    traj_scene_update.entities.push_back(traj_entity);
+    return traj_scene_update;
+}
+
 State Simulator::get_ego_state() const {
     std::shared_lock lock(ego_state_mutex_);
     return ego_state_;
@@ -227,4 +300,10 @@ std::vector<std::shared_ptr<const Pedestrian>> Simulator::get_pedestrians() cons
     auto snapshot = observer_->snapshot_pedestrians();
 
     return snapshot;
+}
+
+void Simulator::update_planning_info(const planning::protos::PlanningInfo& info) {
+    std::unique_lock lock(planning_info_mutex_);
+    planning_info_.CopyFrom(info);
+    planning_info_updated_.store(true);
 }

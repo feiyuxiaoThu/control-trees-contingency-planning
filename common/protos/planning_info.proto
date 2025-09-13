@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package planning.protos;
+
+message SpeedPoint {
+    double x = 1;
+    double y = 2;
+    double s = 3;
+    double v = 4;
+    double a = 5;
+    double t = 6;
+}
+
+message SpeedProfile {
+    uint32 branch_id = 1;
+    double probability = 2;
+    double stopline = 3;
+    repeated SpeedPoint points = 4;
+}
+
+message State {
+    double pos_x = 1;
+    double pos_y = 2;
+    double theta = 3;
+    double velocity = 4;
+}
+
+message Time {
+    uint32 sec = 1;
+    uint32 nsec = 2;
+}
+
+message Header {
+    uint32 seq = 1;
+    Time stamp = 2;
+    string frame_id = 3;
+}
+
+message PlanningInfo {
+    Header header = 1;
+    State current_state = 2;
+    double cruise_velocity = 3;
+    double target_accel = 4;
+    double cost_time_ms = 5;
+    double solution_cost = 6;
+    repeated SpeedProfile solution = 7;
+}

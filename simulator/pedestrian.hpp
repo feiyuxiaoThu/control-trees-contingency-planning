@@ -68,7 +68,7 @@ class CrossingPedestrian : public Pedestrian {
         : Pedestrian(id, start_position),
           p_(p),
           crossing_x_(crossing_x),
-          crossing_duration_(5.0),
+          crossing_duration_(4.0),
           forward_(forward) {}
 
     bool is_forward_direction() const { return forward_; }

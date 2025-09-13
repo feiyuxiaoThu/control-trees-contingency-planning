@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-07 16:00:17
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-13 14:52:43
+ * @LastEditTime: 2025-09-13 19:19:44
  * @FilePath: /dive-into-contingency-planning/planning/stopline_qp_tree.hpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -14,6 +14,7 @@
 #include "planning/mpc_model.hpp"
 #include "planning/qp_tree_solver_osqp.hpp"
 #include "simulator/pedestrian.hpp"
+#include "common/protos/planning_info.pb.h"
 
 struct Stopline {
     double x;
@@ -34,7 +35,8 @@ class StopLineQPTree {
 
     bool validate_and_save_solution(const Eigen::VectorXd &U, const State &o);
 
-    // std::vector<nav_msgs::Path> get_trajectories();
+    planning::protos::PlanningInfo get_debug_result(const State& current_state);
+
     Control get_control() const {
       return Control{U_sol_.size() > 0 ? U_sol_[0] : 0.0, 0.0};
     }
@@ -43,7 +45,10 @@ class StopLineQPTree {
     void create_tree();
     bool valid(const Eigen::VectorXd& U, const Eigen::VectorXd& X) const;
 
-  private:
+    uint32_t plan_seq_{0};
+    double solve_cost_time_ms_{0.0};
+    double solution_cost_{0.0};
+
     // params
     const int n_branches_;
     const uint steps_;

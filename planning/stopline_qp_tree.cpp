@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-07 16:00:13
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-13 15:49:10
+ * @LastEditTime: 2025-09-13 20:22:10
  * @FilePath: /dive-into-contingency-planning/planning/stopline_qp_tree.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -31,6 +31,7 @@ void StopLineQPTree::update_stopline(const State& ego_current_state,
     for (size_t i = 0; i < N; ++i) {
         const double stop = pedestrians[i]->get_position().x - 6.5;
         const double probability = pedestrians[i]->get_crossing_probability();
+        
         if (ego_current_state.x < stop + 1 && probability > 0.01) {
             stoplines_[i].x = stop;
             stoplines_[i].p = probability;
@@ -53,6 +54,7 @@ void StopLineQPTree::update_stopline(const State& ego_current_state,
 
 TimeCostPair StopLineQPTree::plan(const State& current_state,
                                   std::vector<std::shared_ptr<const Pedestrian>> pedestrians) {
+    ++plan_seq_;
     update_stopline(current_state, pedestrians);
 
     // INITIAL STATES
@@ -82,9 +84,10 @@ TimeCostPair StopLineQPTree::plan(const State& current_state,
     auto U = solver_.solve(x0_, xd, k, tree_->n_steps, tree_->varss, tree_->scaless);
 
     auto end = std::chrono::high_resolution_clock::now();
-    float execution_time_us =
+    double execution_time_us =
         std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-    spdlog::info("[planning] execution time (ms):{}", execution_time_us / 1000);
+    solve_cost_time_ms_ = execution_time_us / 1000.0;
+    spdlog::info("[planning] execution time (ms):{}", solve_cost_time_ms_);
 
     if (std::fabs(U[1] - U[0]) > 0.5) {
         spdlog::warn("[planning] High Jerk at trajectory start!!!");
@@ -107,11 +110,12 @@ TimeCostPair StopLineQPTree::plan(const State& current_state,
         }
     }
 
-    double solution_cost = model_.cost(x0_, U_sol_, xd);
-    spdlog::info("[planning] costs: {:.2f} speed: {:.2f} accel: {:.2f}", solution_cost,
+    solution_cost_ = model_.cost(x0_, U_sol_, xd);
+
+    spdlog::info("[planning] costs: {:.2f} speed: {:.2f} accel: {:.2f}", solution_cost_,
                  current_state.velocity, U_sol_[0]);
 
-    return {execution_time_us / 1000000, solution_cost};
+    return {solve_cost_time_ms_, solution_cost_};
 }
 
 bool StopLineQPTree::validate_and_save_solution(const Eigen::VectorXd& U, const State& state) {
@@ -125,7 +129,6 @@ bool StopLineQPTree::validate_and_save_solution(const Eigen::VectorXd& U, const 
         if (valid(U, X)) {
             U_sol_ = U;
             X_sol_ = X;
-
             optimization_run_ = true;
 
             return true;
@@ -139,58 +142,63 @@ bool StopLineQPTree::validate_and_save_solution(const Eigen::VectorXd& U, const 
     return false;
 }
 
-// std::vector<nav_msgs::Path> StopLineQPTree::get_trajectories()
-// {
-//     std::vector<nav_msgs::Path> paths(tree_->varss.size());
+planning::protos::PlanningInfo StopLineQPTree::get_debug_result(const State& current_state) {
+    planning::protos::PlanningInfo info;
+    auto mutable_header = info.mutable_header();
+    auto timestamp = TimeUtil::NowTimestamp();
+    mutable_header->set_seq(plan_seq_);
+    mutable_header->set_frame_id("map");
+    mutable_header->mutable_stamp()->set_sec(timestamp.sec);
+    mutable_header->mutable_stamp()->set_nsec(timestamp.nsec);
+    auto mutable_state = info.mutable_current_state();
+    mutable_state->set_pos_x(current_state.x);
+    mutable_state->set_pos_y(current_state.y);
+    mutable_state->set_theta(current_state.yaw);
+    mutable_state->set_velocity(current_state.velocity);
+    info.set_cruise_velocity(v_desired_);
 
-//     if(!optimization_run_ || optimization_error_)
-//     {
-//         return paths;
-//     }
+    if (!optimization_run_ || optimization_error_) {
+        return info;
+    }
 
-//     auto msg_from_s = [](double x)
-//     {
-//         tf2::Quaternion q;
-//         q.setRPY(0, 0, 0);
-//         geometry_msgs::PoseStamped pose;
-//         pose.pose.position.x = x;
-//         pose.pose.orientation.x = q.x();
-//         pose.pose.orientation.y = q.y();
-//         pose.pose.orientation.z = q.z();
-//         pose.pose.orientation.w = q.w();
-//         return pose;
-//     };
+    double target_accel = U_sol_.size() > 0 ? U_sol_[0] : 0.0;
+    info.set_target_accel(to_fixed<2>(target_accel));
+    info.set_cost_time_ms(to_fixed<2>(solve_cost_time_ms_));
+    info.set_solution_cost(to_fixed<2>(solution_cost_));
 
-//     for(auto l = 0; l < tree_->varss.size(); ++l)
-//     {
-//         {
-//             nav_msgs::Path msg;
-//             msg.header.stamp = ros::Time::now();
-//             msg.header.frame_id = "map";
-//             msg.poses.reserve(tree_->varss[l].size() + 1);
+    for(auto l = 0; l < tree_->varss.size(); ++l) {
+        auto speed_profile = info.add_solution();
+        speed_profile->set_branch_id(l);
+        speed_profile->set_probability(to_fixed<2>(tree_->scaless[l].back()));
+        double stopline_x = std::numeric_limits<double>::infinity();
+        if (n_branches_ > 1 && l < stoplines_.size()) {
+            stopline_x = to_fixed<2>(stoplines_[l].x);
+        }
+        speed_profile->set_stopline(stopline_x);
+        speed_profile->mutable_points()->Reserve(tree_->varss[l].size());
+        double current_odom = 0.0;
+        double last_x = 0.0;
+        size_t idx = 0;
+        for (auto k : tree_->varss[l]) {
+            auto speed_point = speed_profile->add_points();
+            speed_point->set_x(X_sol_[2 * k]);
+            speed_point->set_y(0.0);
+            if (k == 0) {
+                speed_point->set_s(0.0);
+            } else {
+                current_odom += (X_sol_[2 * k] - last_x);
+                speed_point->set_s(current_odom);
+            }
+            speed_point->set_v(X_sol_[2 * k + 1]);
+            speed_point->set_a(k < U_sol_.size() ? U_sol_[k] : 0.0);
+            speed_point->set_t(1.0 * idx / steps_);
+            last_x = X_sol_[2 * k];
+            ++idx;
+        }
+    }
 
-//             msg.poses.push_back(msg_from_s(x0_[0]));
-
-//             if(l > 0 && tree_->scaless[l].back() < 0.01) // particular cas to avoid sending
-//             degenerated trajs
-//             {
-//                 paths[l] = paths[l-1];
-//             }
-//             else
-//             {
-//                 // nominal case
-//                 for(auto k : tree_->varss[l])
-//                 {
-//                     msg.poses.push_back(msg_from_s(X_sol_[2*k]));
-//                 }
-
-//                 paths[l] = msg;
-//             }
-//         }
-//     }
-
-//     return paths;
-// }
+    return info;
+}
 
 void StopLineQPTree::create_tree() {
     if (n_branches_ == 1) {

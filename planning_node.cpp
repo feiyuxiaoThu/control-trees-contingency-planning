@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:23:02
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-13 15:50:52
+ * @LastEditTime: 2025-09-13 18:01:20
  * @FilePath: /dive-into-contingency-planning/planning_node.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -22,7 +22,9 @@ int main() {
         auto pedestrians = simulator.get_pedestrians();
         auto [time, cost] = planner.plan(ego_state, pedestrians);
         auto control = planner.get_control();
+        auto planning_info = planner.get_debug_result(ego_state);
         simulator.set_ego_control_input(control);
+        simulator.update_planning_info(planning_info);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 

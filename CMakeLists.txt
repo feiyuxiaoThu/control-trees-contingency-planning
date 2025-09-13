@@ -21,11 +21,34 @@ endif ()
 
 find_package(spdlog REQUIRED)
 find_package(OsqpEigen REQUIRED)
+find_package(Protobuf REQUIRED)
 
 include_directories("/usr/include/eigen3")
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
 include_directories(${PROJECT_SOURCE_DIR}/3rdparty/foxglove/include)
+
+# Protobuf settings
+set(PROTO_FILES "${PROJECT_SOURCE_DIR}/common/protos/planning_info.proto")
+set(PROTO_OUTPUT_DIR "${PROJECT_SOURCE_DIR}/common/protos")
+
+# Define output files
+get_filename_component(PROTO_FILE_WE ${PROTO_FILES} NAME_WE)
+set(PROTO_SRCS "${PROTO_OUTPUT_DIR}/${PROTO_FILE_WE}.pb.cc")
+set(PROTO_HDRS "${PROTO_OUTPUT_DIR}/${PROTO_FILE_WE}.pb.h")
+
+# Custom command to generate protobuf files directly in target directory
+add_custom_command(
+    OUTPUT ${PROTO_SRCS} ${PROTO_HDRS}
+    COMMAND ${Protobuf_PROTOC_EXECUTABLE}
+    ARGS --cpp_out=${PROTO_OUTPUT_DIR} --proto_path=${PROTO_OUTPUT_DIR} ${PROTO_FILES}
+    DEPENDS ${PROTO_FILES}
+    COMMENT "Generating C++ code from ${PROTO_FILES}"
+    VERBATIM
+)
+
+# Add generated proto directory to includes
+include_directories(${PROTO_OUTPUT_DIR})
 
 # Find all Foxglove SDK source files
 set(foxglove_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty/foxglove")
@@ -38,8 +61,8 @@ file(GLOB SIMULATOR_SOURCES CONFIGURE_DEPENDS "simulator/*.cpp")
 file(GLOB PLANNING_SOURCES CONFIGURE_DEPENDS "planning/*.cpp")
 
 add_library(simulator SHARED ${SIMULATOR_SOURCES})
-add_library(planning SHARED ${PLANNING_SOURCES})
-target_link_libraries(planning PUBLIC OsqpEigen::OsqpEigen)
+add_library(planning SHARED ${PLANNING_SOURCES} ${PROTO_SRCS})
+target_link_libraries(planning PUBLIC OsqpEigen::OsqpEigen ${Protobuf_LIBRARIES})
 
 add_executable(planning_node planning_node.cpp)
 target_sources(planning_node PRIVATE ${FOXGLOVE_SOURCES})

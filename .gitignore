@@ -34,3 +34,6 @@
 .vscode
 build
 *.pyc
+
+*.pb.cc
+*.pb.h
