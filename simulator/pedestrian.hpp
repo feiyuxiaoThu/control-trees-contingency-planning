@@ -26,6 +26,7 @@ class Pedestrian {
     }
 
     virtual double get_crossing_probability() const = 0;
+    virtual double observe_crossing_probability() = 0;
     virtual void step(double now_s, double now_x) = 0;
     virtual bool is_forward_direction() const = 0;
 
@@ -77,6 +78,8 @@ class CrossingPedestrian : public Pedestrian {
 
     double get_crossing_probability() const;
 
+    double observe_crossing_probability();
+
     void step(double now_s, double now_x);
 
   private:
@@ -102,6 +105,8 @@ class NonCrossingPedestrian : public Pedestrian {
     bool is_non_crossing(double time, double x);
 
     double get_crossing_probability() const;
+
+    double observe_crossing_probability();
 
     void step(double now_s, double now_x);
 

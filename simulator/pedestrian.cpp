@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-06 19:25:02
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-07 16:57:05
+ * @LastEditTime: 2025-09-14 00:59:37
  * @FilePath: /dive-into-contingency-planning/simulator/pedestrian.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved. 
  */
@@ -12,18 +12,18 @@
 #include <spdlog/spdlog.h>
 #include <random>
 
-static double rand_01() {
+static double norm_rand_01() {
     static thread_local std::mt19937 generator(std::random_device{}());
     static thread_local std::uniform_real_distribution<double> distribution(0.0, 1.0);
     return distribution(generator);
 }
 
-static double draw_p(double median_p) {
+static double noisy_prob(double median_p) {
     double exponent = std::log(median_p) / std::log(0.5);
-    return std::pow(rand_01(), exponent);
+    return std::pow(norm_rand_01(), exponent);
 }
 
-static bool draw_bool(double average_p) { return (rand_01() < average_p); }
+static bool draw_bool(double average_p) { return (norm_rand_01() < average_p); }
 
 // obstacle creation
 std::shared_ptr<Pedestrian> generate_new_pedestrian(double p_crossing, uint32_t id,
@@ -31,15 +31,13 @@ std::shared_ptr<Pedestrian> generate_new_pedestrian(double p_crossing, uint32_t 
     std::shared_ptr<Pedestrian> pedestrian;
 
     const double distance_ahead = 20;
-    const double distance = distance_ahead + rand_01() * 50.0;
+    const double distance = distance_ahead + norm_rand_01() * 50.0;
     const double new_x = car_position.x + distance;
-    const double new_y = rand_01() > 0.5 ? 0.5 * lane_width + 1 : -0.5 * lane_width - 1;
-    const double certainty_x = new_x - 20;  // uncertainty vanishes 15 m to the pedestrian
-
-    const double p = draw_p(p_crossing);
-    const double certainty_distance = 10 + (distance_ahead - 5) * rand_01();  // * rand_01();
-
-    bool is_forward = rand_01() > 0.5;
+    const double new_y = norm_rand_01() > 0.5 ? 0.5 * lane_width + 1 : -0.5 * lane_width - 1;
+    // uncertainty vanishes to the pedestrian
+    const double certainty_x = new_x - 20 + (norm_rand_01() - 0.5) * 10;
+    const double p = noisy_prob(p_crossing);
+    bool is_forward = norm_rand_01() > 0.5;
     State init_state{new_x, new_y, is_forward ? 0 : M_PI, 1.0};
 
     if (draw_bool(p_crossing)) {
@@ -86,6 +84,19 @@ double CrossingPedestrian::get_crossing_probability() const {
     }
 }
 
+double CrossingPedestrian::observe_crossing_probability() {
+    if (state_ == PedestrianState::UNCERTAIN) {
+        double random_sample = norm_rand_01();
+        if (random_sample < 0.1) {
+            p_ = p_ * (1 - random_sample) + random_sample;
+            p_ = std::min(0.98, p_);
+        }
+        return p_;
+    }
+
+    return 1.0;
+}
+
 void CrossingPedestrian::step(double now_s, double now_x) {
     if (is_crossing(now_s, now_x)) {
         const double dt = now_s - last_update_time_;
@@ -127,6 +138,19 @@ double NonCrossingPedestrian::get_crossing_probability() const {
     }
 }
 
+double NonCrossingPedestrian::observe_crossing_probability() {
+    if (state_ == PedestrianState::UNCERTAIN) {
+        double random_sample = norm_rand_01();
+        if (random_sample < 0.15) {
+            p_ = p_ * (1 - random_sample);
+            p_ = std::max(0.02, p_);
+        }
+        return p_;
+    }
+
+    return 0.0;
+}
+
 void NonCrossingPedestrian::step(double now_s, double now_x) {
     if (is_non_crossing(now_s, now_x)) {
         const double dt = now_s - last_update_time_;
@@ -157,7 +181,7 @@ foxglove::schemas::SceneUpdate PedestrianObserver::observe_pedestrians(const Sta
         if (pedestrian) {
             const auto position = pedestrian->get_position();
             const auto start_position = pedestrian->get_start_position();
-            double crossing_probability = pedestrian->get_crossing_probability();
+            double crossing_probability = pedestrian->observe_crossing_probability();
 
             foxglove::schemas::SceneEntity entity;
             entity.id = "pedestrian_" + std::to_string(i);
@@ -176,19 +200,19 @@ foxglove::schemas::SceneUpdate PedestrianObserver::observe_pedestrians(const Sta
                 cube_maker.color->r = 1.0;
                 cube_maker.color->g = 0.0;
                 cube_maker.color->b = 0.0;
-                const double yaw = (M_PI / 2.0) * (pedestrian->is_forward_direction() ? 1.0 : -1.0);
+                const double yaw = pedestrian->get_start_position().y > 0 ? (M_PI_2 * 3) : M_PI_2;
                 cube_maker.pose->orientation = yaw_to_quaternion(yaw);
             } else {
                 cube_maker.color->r = 0.0;
                 cube_maker.color->g = 1.0;
                 cube_maker.color->b = 0.0;
 
-                const double crossing_angle = pedestrian->get_start_position().y > 0 ? 0 : M_PI;
+                double crossing_angle = pedestrian->get_start_position().y > 0 ? -M_PI_2 : M_PI_2;
                 double final_non_crossing_angle =
-                    (M_PI / 2.0) * (pedestrian->is_forward_direction() ? 1.0 : -1.0);
-                if (pedestrian->get_start_position().y < 0 && !pedestrian->is_forward_direction()) {
+                    M_PI * (pedestrian->is_forward_direction() ? 0 : 1.0);
+                if (pedestrian->get_start_position().y > 0 && !pedestrian->is_forward_direction()) {
                     // handle particular case otherwise angle interpolation doesn't work
-                    final_non_crossing_angle = 3.0 * M_PI / 2.0;
+                    crossing_angle = M_PI_2 * 3;
                 }
                 const double yaw = (1 - crossing_probability) * final_non_crossing_angle +
                                    crossing_probability * crossing_angle;
@@ -201,6 +225,17 @@ foxglove::schemas::SceneUpdate PedestrianObserver::observe_pedestrians(const Sta
                 cube_maker.color->b = 1.0;
             }
             entity.cubes.emplace_back(cube_maker);
+
+            // arrow
+            // foxglove::schemas::ArrowPrimitive arrow_maker;
+            // arrow_maker.pose = cube_maker.pose;
+            // arrow_maker.pose.value().position.value().z = 0.25;
+            // arrow_maker.shaft_length = 0.25;
+            // arrow_maker.shaft_diameter = 0.5;
+            // arrow_maker.head_length = 0.5;
+            // arrow_maker.head_diameter = 0.5;
+            // arrow_maker.color = cube_maker.color;
+            // entity.arrows.emplace_back(arrow_maker);
 
             // crossing prediction line
             foxglove::schemas::LinePrimitive crossing_prediction;
