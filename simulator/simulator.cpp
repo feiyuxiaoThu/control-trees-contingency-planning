@@ -2,16 +2,17 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:18:40
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-13 20:23:43
+ * @LastEditTime: 2025-09-14 16:11:43
  * @FilePath: /dive-into-contingency-planning/simulator/simulator.cpp
- * Copyright (c) 2025 by puyu, All Rights Reserved. 
+ * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
 
 #include "simulator.hpp"
 
+#include <google/protobuf/descriptor.pb.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 #include <yaml-cpp/yaml.h>
-#include <google/protobuf/descriptor.pb.h>
 
 Simulator::Simulator(const std::string& config_file) {
     n_pedestrians_ = 4;
@@ -19,6 +20,11 @@ Simulator::Simulator(const std::string& config_file) {
     lane_width_ = 3.5;
     ego_state_ = State{0, 0, 0, 5.0};
     observer_ = std::make_shared<PedestrianObserver>(n_pedestrians_);
+
+    auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    logger_ = std::make_shared<spdlog::logger>("simulator_logger", console_sink);
+    logger_->set_level(spdlog::level::debug);
+    logger_->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^\033[1m%l\033[0m%$] [%s:%#] %v");
 }
 
 Simulator::~Simulator() { stop(); }
@@ -47,27 +53,80 @@ void Simulator::set_ego_control_input(const Control& input) {
 }
 
 void Simulator::simulation_loop() {
-    const auto start = std::chrono::steady_clock::now();
+    if (!register_publish_channels()) {
+        LOG_ERROR(logger_, "Failed to register publish channels.");
+        return;
+    }
+
+    const auto loop_start = std::chrono::steady_clock::now();
+    auto next_tick = loop_start;
+    while (running_) {
+        update_ego_state();
+        update_pedestrians();
+
+        const auto pedestrian_update = observer_->observe_pedestrians(ego_state_, lane_width_);
+        const auto ego_pose = get_ego_state().to_pose();
+        const auto ego_car_scene_update = get_ego_scene_update(ego_pose);
+        const auto lane_scene_update = get_lane_scene_update(ego_pose);
+
+        foxglove::schemas::FrameTransform transform;
+        transform.timestamp = TimeUtil::NowTimestamp();
+        transform.parent_frame_id = "map";
+        transform.child_frame_id = "base_link";
+        transform.translation = ego_pose.position;
+        transform.rotation = ego_pose.orientation;
+
+        auto dur = std::chrono::steady_clock::now() - loop_start;
+        const double elapsed_seconds = std::chrono::duration<double>(dur).count();
+        std::string elapsed_msg = "{\"elapsed\": " + std::to_string(elapsed_seconds) + "}";
+        loop_runtime_channel_->log(reinterpret_cast<const std::byte*>(elapsed_msg.data()),
+                                   elapsed_msg.size());
+        ego_car_channel_->log(ego_car_scene_update);
+        pedestrians_channel_->log(pedestrian_update);
+        lane_lines_channel_->log(lane_scene_update);
+        transform_channel_->log(transform);
+        if (planning_info_updated_.load()) {
+            std::shared_lock lock(planning_info_mutex_);
+            std::string debug_info_data = planning_info_.SerializeAsString();
+            planning_info_channel_->log(reinterpret_cast<const std::byte*>(debug_info_data.data()),
+                                        debug_info_data.size());
+            const auto traj_scene_update = get_trajectory_scene_update();
+            trajectory_channel_->log(traj_scene_update);
+
+            planning_info_updated_.store(false);
+        }
+
+        next_tick += std::chrono::milliseconds(20);
+        std::this_thread::sleep_until(next_tick);
+    }
+}
+
+bool Simulator::register_publish_channels(void) {
+    using foxglove::RawChannel;
+    using foxglove::WebSocketServer;
+    using foxglove::schemas::FrameTransformChannel;
+    using foxglove::schemas::SceneUpdateChannel;
+
     foxglove::WebSocketServerOptions ws_options;
     ws_options.host = "127.0.0.1";
     ws_options.port = 8765;
-    auto serverResult = foxglove::WebSocketServer::create(std::move(ws_options));
-    if (!serverResult.has_value()) {
-        std::cerr << foxglove::strerror(serverResult.error()) << '\n';
-        return;
+    auto server_result = WebSocketServer::create(std::move(ws_options));
+    if (!server_result.has_value()) {
+        std::cerr << foxglove::strerror(server_result.error()) << '\n';
+        return false;
     }
-    auto server = std::move(serverResult.value());
-    auto loop_runtime_channel =
-        foxglove::RawChannel::create("/simulation/runtime_secs", "json").value();
-    auto ego_car_channel = foxglove::schemas::SceneUpdateChannel::create("/makers/ego_car").value();
-    auto pedestrians_channel =
-        foxglove::schemas::SceneUpdateChannel::create("/makers/pedestrians").value();
-    auto lane_lines_channel =
-        foxglove::schemas::SceneUpdateChannel::create("/makers/lane_lines").value();
-    auto trajectory_channel =
-        foxglove::schemas::SceneUpdateChannel::create("/makers/trajectory").value();
-    auto transform_channel =
-        foxglove::schemas::FrameTransformChannel::create("/transform/map_to_baselink").value();
+    socket_server_ = std::make_unique<WebSocketServer>(std::move(server_result.value()));
+
+    auto make_channel = [](auto&& result) {
+        return std::make_unique<std::decay_t<decltype(result.value())>>(std::move(result.value()));
+    };
+
+    loop_runtime_channel_ = make_channel(RawChannel::create("/simulation/runtime_secs", "json"));
+    ego_car_channel_ = make_channel(SceneUpdateChannel::create("/makers/ego_car"));
+    pedestrians_channel_ = make_channel(SceneUpdateChannel::create("/makers/pedestrians"));
+    lane_lines_channel_ = make_channel(SceneUpdateChannel::create("/makers/lane_lines"));
+    trajectory_channel_ = make_channel(SceneUpdateChannel::create("/makers/trajectory"));
+    transform_channel_ = make_channel(FrameTransformChannel::create("/transform/map_to_baselink"));
 
     auto descriptor = planning::protos::PlanningInfo::descriptor();
     foxglove::Schema schema;
@@ -80,86 +139,54 @@ void Simulator::simulation_loop() {
     std::string serialized_descriptor = file_descriptor_set.SerializeAsString();
     schema.data = reinterpret_cast<const std::byte*>(serialized_descriptor.data());
     schema.data_len = serialized_descriptor.size();
-    auto planning_info_channel = 
-        foxglove::RawChannel::create("/planning_info", "protobuf", std::move(schema)).value();
+    planning_info_channel_ =
+        make_channel(RawChannel::create("/planning_info", "protobuf", std::move(schema)));
 
-    auto next_tick = std::chrono::steady_clock::now();
-    while (running_) {
-        // purge old
+    return true;
+}
+
+void Simulator::update_ego_state(void) {
+    const double current_time_sec = TimeUtil::NowSeconds();
+    Control local_ctrl{0., 0.};
+    {
+        std::shared_lock control_lock(control_input_mutex_);
+        local_ctrl = ego_control_input_;
+    }
+    if (last_ego_update_time_ > 0.1) {
+        const double dt = current_time_sec - last_ego_update_time_;
+        std::unique_lock lock(ego_state_mutex_);
+        ego_state_.x += ego_state_.velocity * std::cos(ego_state_.yaw) * dt;
+        ego_state_.y += ego_state_.velocity * std::sin(ego_state_.yaw) * dt;
+        ego_state_.yaw += local_ctrl.omega * dt;
+        ego_state_.velocity += local_ctrl.accel * dt;
+    }
+    last_ego_update_time_ = current_time_sec;
+}
+
+void Simulator::update_pedestrians(void) {
+    // purge old
+    for (uint32_t i = 0; i < n_pedestrians_; ++i) {
+        auto pedestrian = observer_->pedestrian(i);
+        if (pedestrian && pedestrian->is_done()) {
+            observer_->erase(i);
+            LOG_DEBUG(logger_, "pedestrian {} done", pedestrian->id());
+        }
+    }
+    {
+        std::shared_lock lock(ego_state_mutex_);
+        // recreate new
         for (uint32_t i = 0; i < n_pedestrians_; ++i) {
-            auto pedestrian = observer_->pedestrian(i);
-            if (pedestrian && pedestrian->is_done()) {
-                observer_->erase(i);
-                spdlog::debug("pedestrian {} done", pedestrian->id());
+            if (!observer_->pedestrian(i)) {
+                auto pedestrian = generate_new_pedestrian(p_crossing_, i, lane_width_, ego_state_);
+                observer_->replace_pedestrian(i, pedestrian);
+                LOG_DEBUG(logger_, "car_x: {:.2f}", ego_state_.x);
+                LOG_DEBUG(logger_, "pedestrian {} created start_x: {:.2f} start_y: {:.2f}",
+                          pedestrian->id(), pedestrian->get_start_position().x,
+                          pedestrian->get_start_position().y);
+                break;
             }
         }
-        {
-            std::shared_lock lock(ego_state_mutex_);
-            // recreate new
-            for (uint32_t i = 0; i < n_pedestrians_; ++i) {
-                if (!observer_->pedestrian(i)) {
-                    auto pedestrian =
-                        generate_new_pedestrian(p_crossing_, i, lane_width_, ego_state_);
-                    observer_->replace_pedestrian(i, pedestrian);
-                    spdlog::debug("car_x: {}", ego_state_.x);
-                    spdlog::debug("pedestrian {} created start_x: {} start_y: {}", pedestrian->id(),
-                                  pedestrian->get_start_position().x,
-                                  pedestrian->get_start_position().y);
-                    break;
-                }
-            }
-            observer_->step(ego_state_);
-        }
-        auto pedestrian_update = observer_->observe_pedestrians(ego_state_, lane_width_);
-        const double current_time_sec = TimeUtil::NowSeconds();
-        Control local_ctrl{0., 0.};
-        {
-            std::shared_lock control_lock(control_input_mutex_);
-            local_ctrl = ego_control_input_;
-        } 
-        if (last_update_time_ > 0.1) {
-            const double dt = current_time_sec - last_update_time_;
-            std::unique_lock lock(ego_state_mutex_);
-            ego_state_.x += ego_state_.velocity * std::cos(ego_state_.yaw) * dt;
-            ego_state_.y += ego_state_.velocity * std::sin(ego_state_.yaw) * dt;
-            ego_state_.yaw += local_ctrl.omega * dt;
-            ego_state_.velocity += local_ctrl.accel * dt;
-        }
-        last_update_time_ = current_time_sec;
-
-        const auto ego_pose = get_ego_state().to_pose();
-        const auto ego_car_scene_update = get_ego_scene_update(ego_pose);
-        const auto lane_scene_update = get_lane_scene_update(ego_pose);
-
-        foxglove::schemas::FrameTransform transform;
-        transform.timestamp = TimeUtil::NowTimestamp();
-        transform.parent_frame_id = "map";
-        transform.child_frame_id = "base_link";
-        transform.translation = ego_pose.position;
-        transform.rotation = ego_pose.orientation;
-
-        auto dur = std::chrono::steady_clock::now() - start;
-        const float elapsed_seconds = std::chrono::duration<float>(dur).count();
-        std::string elapsed_msg = "{\"elapsed\": " + std::to_string(elapsed_seconds) + "}";
-        loop_runtime_channel.log(reinterpret_cast<const std::byte*>(elapsed_msg.data()),
-                                 elapsed_msg.size());
-        ego_car_channel.log(ego_car_scene_update);
-        pedestrians_channel.log(pedestrian_update);
-        lane_lines_channel.log(lane_scene_update);
-        transform_channel.log(transform);
-        if (planning_info_updated_.load()) {
-            std::shared_lock lock(planning_info_mutex_);
-            std::string debug_info_data = planning_info_.SerializeAsString();
-            planning_info_channel.log(reinterpret_cast<const std::byte*>(debug_info_data.data()),
-                                      debug_info_data.size());
-            const auto traj_scene_update = get_trajectory_scene_update();
-            trajectory_channel.log(traj_scene_update);
-
-            planning_info_updated_.store(false);
-        }
-
-        next_tick += std::chrono::milliseconds(20);
-        std::this_thread::sleep_until(next_tick);
+        observer_->step(ego_state_);
     }
 }
 
@@ -167,7 +194,7 @@ foxglove::schemas::SceneUpdate Simulator::get_ego_scene_update(
     const foxglove::schemas::Pose& ego_pose) {
     foxglove::schemas::ModelPrimitive ego_model;
     ego_model.url =
-        "https://raw.githubusercontent.com/PuYuuu/dive-into-contingency-planning/develop/assets/"
+        "https://raw.githubusercontent.com/PuYuuu/dive-into-contingency-planning/master/assets/"
         "mesh/lexus.glb";
     ego_model.pose = ego_pose;
     ego_model.scale = {1, 1, 1};

@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-07 16:00:17
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-13 19:19:44
+ * @LastEditTime: 2025-09-14 16:17:57
  * @FilePath: /dive-into-contingency-planning/planning/stopline_qp_tree.hpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -11,10 +11,10 @@
 
 #include "common/common.hpp"
 #include "common/control_tree.hpp"
+#include "common/protos/planning_info.pb.h"
 #include "planning/mpc_model.hpp"
 #include "planning/qp_tree_solver_osqp.hpp"
 #include "simulator/pedestrian.hpp"
-#include "common/protos/planning_info.pb.h"
 
 struct Stopline {
     double x;
@@ -37,9 +37,7 @@ class StopLineQPTree {
 
     planning::protos::PlanningInfo get_debug_result(const State& current_state);
 
-    Control get_control() const {
-      return Control{U_sol_.size() > 0 ? U_sol_[0] : 0.0, 0.0};
-    }
+    Control get_control() const { return Control{U_sol_.size() > 0 ? U_sol_[0] : 0.0, 0.0}; }
 
   private:
     void create_tree();
@@ -48,6 +46,7 @@ class StopLineQPTree {
     uint32_t plan_seq_{0};
     double solve_cost_time_ms_{0.0};
     double solution_cost_{0.0};
+    std::shared_ptr<spdlog::logger> logger_ = nullptr;
 
     // params
     const int n_branches_;

@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:17:35
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-13 19:48:18
+ * @LastEditTime: 2025-09-14 16:06:50
  * @FilePath: /dive-into-contingency-planning/common/common.hpp
  * Copyright (c) 2025 by puyu, All Rights Reserved. 
  */
@@ -14,6 +14,15 @@
 
 #include <chrono>
 #include <cmath>
+#include <spdlog/spdlog.h>
+
+#define LOG_TRACE(logger, ...)    SPDLOG_LOGGER_CALL(logger, spdlog::level::trace, __VA_ARGS__)
+#define LOG_DEBUG(logger, ...)    SPDLOG_LOGGER_CALL(logger, spdlog::level::debug, __VA_ARGS__)
+#define LOG_INFO(logger, ...)     SPDLOG_LOGGER_CALL(logger, spdlog::level::info,  __VA_ARGS__)
+#define LOG_WARN(logger, ...)     SPDLOG_LOGGER_CALL(logger, spdlog::level::warn,  __VA_ARGS__)
+#define LOG_ERROR(logger, ...)    SPDLOG_LOGGER_CALL(logger, spdlog::level::err,   __VA_ARGS__)
+#define LOG_CRITICAL(logger, ...) SPDLOG_LOGGER_CALL(logger, spdlog::level::critical, __VA_ARGS__)
+
 
 struct State {
     double x{0};

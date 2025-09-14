@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-07 15:12:51
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-07 15:23:33
+ * @LastEditTime: 2025-09-14 13:39:59
  * @FilePath: /dive-into-contingency-planning/planning/mpc_model.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -79,10 +79,6 @@ Eigen::VectorXd MPCModel::check_constraints(const Eigen::Vector2d& x0, const Eig
         Xmax(2 * i) = xmax(0);
         Xmax(2 * i + 1) = xmax(1);
     }
-    // std::cout << "X\n" << X << std::endl;
-    // std::cout << "Xmax\n" << Xmax << std::endl;
-    // std::cout << "SU\n" << SU << std::endl;
-    // std::cout << "Xmax - Tx0\n" << Xmax - Tx0 << std::endl;
 
     for (auto i = 0; i < n_steps; ++i) {
         active[2 * i] = X[2 * i] <= Xmax[2 * i] ? 0 : 1.0;

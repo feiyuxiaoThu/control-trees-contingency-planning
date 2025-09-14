@@ -2,14 +2,14 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-07 16:00:13
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-13 20:22:10
+ * @LastEditTime: 2025-09-14 16:10:26
  * @FilePath: /dive-into-contingency-planning/planning/stopline_qp_tree.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
 
 #include "planning/stopline_qp_tree.hpp"
 
-#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 StopLineQPTree::StopLineQPTree(int n_branches, int steps_per_phase)
     : n_branches_(n_branches),
@@ -20,7 +20,10 @@ StopLineQPTree::StopLineQPTree(int n_branches, int steps_per_phase)
       stoplines_(n_branches_ > 1 ? n_branches_ - 1 : 1),
       optimization_run_(false),
       optimization_error_(false) {
-    create_tree();
+    auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    logger_ = std::make_shared<spdlog::logger>("stop_line_logger", console_sink);
+    logger_->set_level(spdlog::level::info);
+    logger_->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^\033[1m%l\033[0m%$] [%s:%#] %v");
 }
 
 void StopLineQPTree::update_stopline(const State& ego_current_state,
@@ -31,7 +34,7 @@ void StopLineQPTree::update_stopline(const State& ego_current_state,
     for (size_t i = 0; i < N; ++i) {
         const double stop = pedestrians[i]->get_position().x - 6.5;
         const double probability = pedestrians[i]->get_crossing_probability();
-        
+
         if (ego_current_state.x < stop + 1 && probability > 0.01) {
             stoplines_[i].x = stop;
             stoplines_[i].p = probability;
@@ -46,7 +49,8 @@ void StopLineQPTree::update_stopline(const State& ego_current_state,
               [](const Stopline& a, const Stopline& b) { return a.x < b.x; });
 
     for (auto i = 0; i < stoplines_.size(); ++i) {
-        spdlog::info("{}--th stopline {:.2f} prob {:.2f}", i, stoplines_[i].x, stoplines_[i].p);
+        LOG_INFO(logger_, "{}--th stopline {:.2f} prob {:.2f}", i, stoplines_[i].x,
+                 stoplines_[i].p);
     }
 
     create_tree();
@@ -87,40 +91,39 @@ TimeCostPair StopLineQPTree::plan(const State& current_state,
     double execution_time_us =
         std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
     solve_cost_time_ms_ = execution_time_us / 1000.0;
-    spdlog::info("[planning] execution time (ms):{}", solve_cost_time_ms_);
+    LOG_INFO(logger_, "execution time (ms):{}", solve_cost_time_ms_);
 
     if (std::fabs(U[1] - U[0]) > 0.5) {
-        spdlog::warn("[planning] High Jerk at trajectory start!!!");
-        spdlog::info("[planning] x: {} v: {}", current_state.x, current_state.velocity);
+        LOG_WARN(logger_, "High Jerk at trajectory start!!!");
+        LOG_INFO(logger_, "x: {} v: {}", current_state.x, current_state.velocity);
     }
 
     optimization_error_ = !validate_and_save_solution(U, current_state);
 
     if (optimization_error_) {
-        spdlog::info(
-            "[planning] Generate control for emergency brake, o.x: {} o.v: {} v_desired_: {}",
-            current_state.x, current_state.velocity, v_desired_);
+        LOG_INFO(logger_, "Generate control for emergency brake, o.x: {} o.v: {} v_desired_: {}",
+                 current_state.x, current_state.velocity, v_desired_);
 
         const auto& U = emergency_brake(current_state.velocity, *tree_, steps_, u_min_);
 
         bool ok_emergency_brake = validate_and_save_solution(U, current_state);
 
         if (!ok_emergency_brake) {
-            spdlog::error("Planning error :((");
+            LOG_ERROR(logger_, "Planning error :((");
         }
     }
 
     solution_cost_ = model_.cost(x0_, U_sol_, xd);
 
-    spdlog::info("[planning] costs: {:.2f} speed: {:.2f} accel: {:.2f}", solution_cost_,
-                 current_state.velocity, U_sol_[0]);
+    LOG_INFO(logger_, "costs: {:.2f} speed: {:.2f} accel: {:.2f}", solution_cost_,
+             current_state.velocity, U_sol_[0]);
 
     return {solve_cost_time_ms_, solution_cost_};
 }
 
 bool StopLineQPTree::validate_and_save_solution(const Eigen::VectorXd& U, const State& state) {
     if (U.rows()) {
-        // spdlog::info("Solved :)");
+        // logger_->info("Solved :)");
         auto x0 = x0_;
         x0(0) += state.x;
 
@@ -133,10 +136,10 @@ bool StopLineQPTree::validate_and_save_solution(const Eigen::VectorXd& U, const 
 
             return true;
         } else {
-            spdlog::warn("[planning] Optimization succeeded but invalid trajectory");
+            LOG_WARN(logger_, "Optimization succeeded but invalid trajectory");
         }
     } else {
-        spdlog::error("[planning] Solution infeasible :(");
+        LOG_ERROR(logger_, "Solution infeasible :(");
     }
 
     return false;
@@ -166,7 +169,7 @@ planning::protos::PlanningInfo StopLineQPTree::get_debug_result(const State& cur
     info.set_cost_time_ms(to_fixed<2>(solve_cost_time_ms_));
     info.set_solution_cost(to_fixed<2>(solution_cost_));
 
-    for(auto l = 0; l < tree_->varss.size(); ++l) {
+    for (auto l = 0; l < tree_->varss.size(); ++l) {
         auto speed_profile = info.add_solution();
         speed_profile->set_branch_id(l);
         speed_profile->set_probability(to_fixed<2>(tree_->scaless[l].back()));
@@ -213,15 +216,15 @@ void StopLineQPTree::create_tree() {
 
     // debug info
     size_t branch_count = 0;
-    spdlog::debug("[planning] tree n_steps: {}", tree_->n_steps);
-    spdlog::debug("[planning] tree varss:");
+    LOG_DEBUG(logger_, "tree n_steps: {}", tree_->n_steps);
+    LOG_DEBUG(logger_, "tree varss:");
     for (const auto& vars : tree_->varss) {
-        spdlog::debug("[planning] branch-{}: {}", branch_count++, fmt::join(vars, ", "));
+        LOG_DEBUG(logger_, "branch-{}: {}", branch_count++, fmt::join(vars, ", "));
     }
     branch_count = 0;
-    spdlog::debug("[planning] tree scaless:");
+    LOG_DEBUG(logger_, "tree scaless:");
     for (const auto& scales : tree_->scaless) {
-        spdlog::debug("[planning] branch-{}: {:.2f}", branch_count++, fmt::join(scales, ", "));
+        LOG_DEBUG(logger_, "branch-{}: {:.2f}", branch_count++, fmt::join(scales, ", "));
     }
 
     assert(tree_->scaless.size() == n_branches_ &&
@@ -233,19 +236,19 @@ bool StopLineQPTree::valid(const Eigen::VectorXd& U, const Eigen::VectorXd& X) c
 
     for (auto i = 0; i < U.rows(); ++i) {
         if (std::isnan(U[i])) {
-            spdlog::error("[planning] nan in U vector!");
+            LOG_ERROR(logger_, "nan in U vector!");
             return false;
         }
 
         if (!(u_min_ - eps <= U[i] && U[i] <= u_max_ + eps)) {
-            spdlog::error("[planning] control out of bounds!: {}", U[i]);
+            LOG_ERROR(logger_, "control out of bounds!: {}", U[i]);
             return false;
         }
     }
 
     for (auto i = 0; i < X.rows(); ++i) {
         if (std::isnan(X[i])) {
-            spdlog::error("[planning] nan in X vector!");
+            LOG_ERROR(logger_, "nan in X vector!");
             return false;
         }
     }
