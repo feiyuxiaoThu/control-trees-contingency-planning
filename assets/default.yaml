@@ -8,6 +8,7 @@ planning:
   u_max: 2.0
   u_min: -6.0
   log_level: "info"     # options: trace, debug, info, warn, err, critical, off
+  solver_type: "osqp"   # options: osqp, control_tree_solver
 
 simulator:
   n_pedestrians: 5

@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-07 15:56:05
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-13 14:58:47
+ * @LastEditTime: 2025-09-14 22:03:21
  * @FilePath: /dive-into-contingency-planning/planning/qp_tree_solver_osqp.hpp
  * Copyright (c) 2025 by puyu, All Rights Reserved. 
  */
@@ -13,7 +13,7 @@
 #include "planning/qp_constraints.hpp"
 #include "planning/qp_tree_solver_base.hpp"
 
-class QPTreeSolverOSQP : public QP_tree_solver_base {
+class QPTreeSolverOSQP : public QPTreeSolverBase {
   public:
     QPTreeSolverOSQP(const MPCModel& mpc, double u_min, double u_max);
 

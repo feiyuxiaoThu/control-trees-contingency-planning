@@ -23,11 +23,15 @@ find_package(spdlog REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(OsqpEigen REQUIRED)
 find_package(Protobuf REQUIRED)
+find_package(BLAS REQUIRED)
 
 include_directories("/usr/include/eigen3")
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
 include_directories(${PROJECT_SOURCE_DIR}/3rdparty/foxglove/include)
+include_directories(${PROJECT_SOURCE_DIR}/3rdparty/control_tree_solver/Core)
+include_directories(${PROJECT_SOURCE_DIR}/3rdparty/control_tree_solver/Optim)
+include_directories(${PROJECT_SOURCE_DIR}/3rdparty/control_tree_solver/OptimDec)
 
 # Protobuf settings
 set(PROTO_FILES "${PROJECT_SOURCE_DIR}/common/protos/planning_info.proto")
@@ -60,10 +64,11 @@ file(GLOB FOXGLOVE_SOURCES CONFIGURE_DEPENDS
 
 file(GLOB SIMULATOR_SOURCES CONFIGURE_DEPENDS "simulator/*.cpp")
 file(GLOB PLANNING_SOURCES CONFIGURE_DEPENDS "planning/*.cpp")
+file(GLOB DEC_SOLVER_LIB CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/3rdparty/control_tree_solver/LIB/*.a")
 
 add_library(simulator SHARED ${SIMULATOR_SOURCES})
 add_library(planning SHARED ${PLANNING_SOURCES} ${PROTO_SRCS})
-target_link_libraries(planning PUBLIC OsqpEigen::OsqpEigen ${Protobuf_LIBRARIES})
+target_link_libraries(planning PUBLIC OsqpEigen::OsqpEigen ${Protobuf_LIBRARIES} ${DEC_SOLVER_LIB} ${BLAS_LIBRARIES})
 
 add_executable(planning_node planning_node.cpp)
 target_sources(planning_node PRIVATE ${FOXGLOVE_SOURCES})

@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-07 16:00:13
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-14 17:36:14
+ * @LastEditTime: 2025-09-14 23:54:46
  * @FilePath: /dive-into-contingency-planning/planning/stopline_qp_tree.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -15,12 +15,13 @@ StopLineQPTree::StopLineQPTree(int n_branches, int steps_per_phase)
     : n_branches_(n_branches),
       steps_(steps_per_phase),
       model_(1.0 / steps_per_phase, 1.0, 5.0),
-      solver_(model_, u_min_, u_max_),
       v_desired_(50 / 3.6),
       stoplines_(n_branches_ > 1 ? n_branches_ - 1 : 1),
       optimization_run_(false),
       optimization_error_(false) {
     init_logger();
+    solver_ = std::make_unique<QPTreeSolverOSQP>(model_, u_min_, u_max_);
+    LOG_INFO(logger_, "Using OSQP solver");
 }
 
 StopLineQPTree::StopLineQPTree(const YAML::Node& config)
@@ -30,11 +31,17 @@ StopLineQPTree::StopLineQPTree(const YAML::Node& config)
       u_max_(config["u_max"].as<double>(2.0)),
       v_desired_(config["v_desired"].as<double>(50 / 3.6)),
       model_(1.0 / steps_, 1.0, 5.0),
-      solver_(model_, u_min_, u_max_),
       stoplines_(n_branches_ > 1 ? n_branches_ - 1 : 1),
       optimization_run_(false),
       optimization_error_(false) {
     init_logger(config["log_level"].as<std::string>("info"));
+    if (config["solver_type"].as<std::string>("osqp") == "osqp") {
+        solver_ = std::make_unique<QPTreeSolverOSQP>(model_, u_min_, u_max_);
+        LOG_INFO(logger_, "Using OSQP solver");
+    } else {
+        solver_ = std::make_unique<QPTreeSolverDec>(model_, u_min_, u_max_);
+        LOG_INFO(logger_, "Using Control-Tree decentralized solver");
+    }
 }
 
 void StopLineQPTree::update_stopline(const State& ego_current_state,
@@ -69,6 +76,11 @@ void StopLineQPTree::update_stopline(const State& ego_current_state,
 
 TimeCostPair StopLineQPTree::plan(const State& current_state,
                                   std::vector<std::shared_ptr<const Pedestrian>> pedestrians) {
+    if (!solver_) {
+        LOG_ERROR(logger_, "Solver not initialized!");
+        return {0.0, 0.0};
+    }
+
     ++plan_seq_;
     update_stopline(current_state, pedestrians);
 
@@ -96,7 +108,7 @@ TimeCostPair StopLineQPTree::plan(const State& current_state,
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    auto U = solver_.solve(x0_, xd, k, tree_->n_steps, tree_->varss, tree_->scaless);
+    auto U = solver_->solve(x0_, xd, k, tree_->n_steps, tree_->varss, tree_->scaless);
 
     auto end = std::chrono::high_resolution_clock::now();
     double execution_time_us =

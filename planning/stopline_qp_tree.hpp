@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-07 16:00:17
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-14 16:57:17
+ * @LastEditTime: 2025-09-14 23:55:29
  * @FilePath: /dive-into-contingency-planning/planning/stopline_qp_tree.hpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -14,6 +14,7 @@
 #include "common/protos/planning_info.pb.h"
 #include "planning/mpc_model.hpp"
 #include "planning/qp_tree_solver_osqp.hpp"
+#include "planning/qp_tree_solver_dec.hpp"
 #include "simulator/pedestrian.hpp"
 
 #include <yaml-cpp/yaml.h>
@@ -66,7 +67,7 @@ class StopLineQPTree {
     // tree
     std::shared_ptr<TreePb> tree_;
     MPCModel model_;
-    QPTreeSolverOSQP solver_;
+    std::unique_ptr<QPTreeSolverBase> solver_{nullptr};
 
     // results
     Eigen::Vector2d x0_;

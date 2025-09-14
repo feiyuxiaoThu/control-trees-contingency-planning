@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-07 15:52:19
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-13 14:59:02
+ * @LastEditTime: 2025-09-14 22:03:00
  * @FilePath: /dive-into-contingency-planning/planning/qp_tree_solver_base.hpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -12,9 +12,9 @@
 #include "planning/mpc_model.hpp"
 #include "planning/qp_constraints.hpp"
 
-class QP_tree_solver_base {
+class QPTreeSolverBase {
   public:
-    QP_tree_solver_base(const MPCModel& mpc, double u_min, double u_max)
+    QPTreeSolverBase(const MPCModel& mpc, double u_min, double u_max)
         : mpc(mpc), u_min_(u_min), u_max_(u_max) {}
 
     virtual Eigen::VectorXd solve(const Eigen::Vector2d& x0, const Eigen::Vector2d& xd,

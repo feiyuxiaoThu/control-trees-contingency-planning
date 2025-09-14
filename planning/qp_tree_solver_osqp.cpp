@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-11 23:35:58
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-13 15:25:09
+ * @LastEditTime: 2025-09-14 22:04:32
  * @FilePath: /dive-into-contingency-planning/planning/qp_tree_solver_osqp.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -13,7 +13,7 @@
 #include <spdlog/spdlog.h>
 
 QPTreeSolverOSQP::QPTreeSolverOSQP(const MPCModel& mpc, double u_min, double u_max)
-    : QP_tree_solver_base(mpc, u_min, u_max), control_bounds_in_A_(true) {}
+    : QPTreeSolverBase(mpc, u_min, u_max), control_bounds_in_A_(true) {}
 
 Eigen::VectorXd QPTreeSolverOSQP::solve(const Eigen::Vector2d& x0, const Eigen::Vector2d& xd,
                                         const Constraints& k, int n_steps,
