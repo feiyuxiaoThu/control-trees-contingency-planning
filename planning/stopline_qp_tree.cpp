@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-07 16:00:13
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-14 16:10:26
+ * @LastEditTime: 2025-09-14 17:36:14
  * @FilePath: /dive-into-contingency-planning/planning/stopline_qp_tree.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -20,10 +20,21 @@ StopLineQPTree::StopLineQPTree(int n_branches, int steps_per_phase)
       stoplines_(n_branches_ > 1 ? n_branches_ - 1 : 1),
       optimization_run_(false),
       optimization_error_(false) {
-    auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    logger_ = std::make_shared<spdlog::logger>("stop_line_logger", console_sink);
-    logger_->set_level(spdlog::level::info);
-    logger_->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^\033[1m%l\033[0m%$] [%s:%#] %v");
+    init_logger();
+}
+
+StopLineQPTree::StopLineQPTree(const YAML::Node& config)
+    : n_branches_(config["n_branches"].as<int>(5)),
+      steps_(config["steps_per_phase"].as<int>(4)),
+      u_min_(config["u_min"].as<double>(-6.0)),
+      u_max_(config["u_max"].as<double>(2.0)),
+      v_desired_(config["v_desired"].as<double>(50 / 3.6)),
+      model_(1.0 / steps_, 1.0, 5.0),
+      solver_(model_, u_min_, u_max_),
+      stoplines_(n_branches_ > 1 ? n_branches_ - 1 : 1),
+      optimization_run_(false),
+      optimization_error_(false) {
+    init_logger(config["log_level"].as<std::string>("info"));
 }
 
 void StopLineQPTree::update_stopline(const State& ego_current_state,
@@ -158,7 +169,7 @@ planning::protos::PlanningInfo StopLineQPTree::get_debug_result(const State& cur
     mutable_state->set_pos_y(current_state.y);
     mutable_state->set_theta(current_state.yaw);
     mutable_state->set_velocity(current_state.velocity);
-    info.set_cruise_velocity(v_desired_);
+    info.set_cruise_velocity(to_fixed<2>(v_desired_));
 
     if (!optimization_run_ || optimization_error_) {
         return info;
@@ -175,7 +186,8 @@ planning::protos::PlanningInfo StopLineQPTree::get_debug_result(const State& cur
         speed_profile->set_probability(to_fixed<2>(tree_->scaless[l].back()));
         double stopline_x = std::numeric_limits<double>::infinity();
         if (n_branches_ > 1 && l < stoplines_.size()) {
-            stopline_x = to_fixed<2>(stoplines_[l].x);
+            // relative to current position
+            stopline_x = to_fixed<2>(stoplines_[l].x - current_state.x);
         }
         speed_profile->set_stopline(stopline_x);
         speed_profile->mutable_points()->Reserve(tree_->varss[l].size());
@@ -254,6 +266,13 @@ bool StopLineQPTree::valid(const Eigen::VectorXd& U, const Eigen::VectorXd& X) c
     }
 
     return true;
+}
+
+void StopLineQPTree::init_logger(const std::string& log_level_str /* = "info" */) {
+    auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    logger_ = std::make_shared<spdlog::logger>("stop_line_logger", console_sink);
+    logger_->set_level(spdlog::level::from_str(log_level_str)); 
+    logger_->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^\033[1m%l\033[0m%$] [%s:%#] %v");
 }
 
 Eigen::VectorXd emergency_brake(const double v, const TreePb& tree, int steps_per_phase, double u) {

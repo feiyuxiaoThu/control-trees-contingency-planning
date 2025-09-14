@@ -1,0 +1,17 @@
+max_driving_distance: 10000.0 # meters
+max_simulation_time: 300.0    # seconds
+
+planning:
+  steps_per_phase: 4
+  n_branches: 6
+  desired_speed: 13.89  # 50 km/h
+  u_max: 2.0
+  u_min: -6.0
+  log_level: "info"     # options: trace, debug, info, warn, err, critical, off
+
+simulator:
+  n_pedestrians: 5
+  p_crossing: 0.05
+  lane_width: 3.5
+  init_speed: 10.0
+  log_level: "debug"

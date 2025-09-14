@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-09-07 16:00:17
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-14 16:17:57
+ * @LastEditTime: 2025-09-14 16:57:17
  * @FilePath: /dive-into-contingency-planning/planning/stopline_qp_tree.hpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -16,6 +16,8 @@
 #include "planning/qp_tree_solver_osqp.hpp"
 #include "simulator/pedestrian.hpp"
 
+#include <yaml-cpp/yaml.h>
+
 struct Stopline {
     double x;
     double p;
@@ -23,6 +25,8 @@ struct Stopline {
 
 class StopLineQPTree {
   public:
+    StopLineQPTree() = delete;
+    StopLineQPTree(const YAML::Node& config);
     StopLineQPTree(int n_branches, int steps_per_phase);
 
     void set_desired_speed(double desired_speed) { v_desired_ = desired_speed; }
@@ -42,6 +46,7 @@ class StopLineQPTree {
   private:
     void create_tree();
     bool valid(const Eigen::VectorXd& U, const Eigen::VectorXd& X) const;
+    void init_logger(const std::string& log_level_str = "info");
 
     uint32_t plan_seq_{0};
     double solve_cost_time_ms_{0.0};
@@ -51,7 +56,7 @@ class StopLineQPTree {
     // params
     const int n_branches_;
     const uint steps_;
-    double u_min_{-8.0};
+    double u_min_{-6.0};
     double u_max_{2.0};
 
     // target: params than can be adapted

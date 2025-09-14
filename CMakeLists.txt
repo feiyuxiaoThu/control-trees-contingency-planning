@@ -20,6 +20,7 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
 endif ()
 
 find_package(spdlog REQUIRED)
+find_package(yaml-cpp REQUIRED)
 find_package(OsqpEigen REQUIRED)
 find_package(Protobuf REQUIRED)
 
@@ -70,6 +71,7 @@ target_link_libraries(planning_node PRIVATE
     simulator
     planning
     spdlog::spdlog
+    yaml-cpp::yaml-cpp
     ${foxglove_SOURCE_DIR}/lib/libfoxglove.a
     pthread
     dl

@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:18:40
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-14 16:11:43
+ * @LastEditTime: 2025-09-14 17:44:45
  * @FilePath: /dive-into-contingency-planning/simulator/simulator.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -11,19 +11,18 @@
 
 #include <google/protobuf/descriptor.pb.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/spdlog.h>
-#include <yaml-cpp/yaml.h>
 
-Simulator::Simulator(const std::string& config_file) {
-    n_pedestrians_ = 4;
-    p_crossing_ = 0.05;
-    lane_width_ = 3.5;
-    ego_state_ = State{0, 0, 0, 5.0};
+Simulator::Simulator(const YAML::Node& config) {
+    n_pedestrians_ = config["n_pedestrians"].as<uint32_t>(4);
+    p_crossing_ = config["p_crossing"].as<double>(0.05);
+    lane_width_ = config["lane_width"].as<double>(3.5);
+    double init_speed = config["initial_speed"].as<double>(5.0);
+    ego_state_ = State{0, 0, 0, init_speed};
     observer_ = std::make_shared<PedestrianObserver>(n_pedestrians_);
 
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     logger_ = std::make_shared<spdlog::logger>("simulator_logger", console_sink);
-    logger_->set_level(spdlog::level::debug);
+    logger_->set_level(spdlog::level::from_str(config["log_level"].as<std::string>("info")));
     logger_->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^\033[1m%l\033[0m%$] [%s:%#] %v");
 }
 
@@ -35,6 +34,7 @@ void Simulator::start() {
     }
     running_ = true;
     sim_thread_ = std::thread(&Simulator::simulation_loop, this);
+    LOG_INFO(logger_, "Simulator started.");
 }
 
 void Simulator::stop() {
@@ -45,6 +45,7 @@ void Simulator::stop() {
     if (sim_thread_.joinable()) {
         sim_thread_.join();
     }
+    LOG_INFO(logger_, "Simulator stopped.");
 }
 
 void Simulator::set_ego_control_input(const Control& input) {

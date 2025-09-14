@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:18:40
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-14 16:08:34
+ * @LastEditTime: 2025-09-14 17:15:27
  * @FilePath: /dive-into-contingency-planning/simulator/simulator.hpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -15,6 +15,8 @@
 #include "foxglove/server.hpp"
 #include "simulator/pedestrian.hpp"
 
+#include <yaml-cpp/yaml.h>
+
 #include <atomic>
 #include <mutex>
 #include <shared_mutex>
@@ -24,7 +26,8 @@
 
 class Simulator {
   public:
-    Simulator(const std::string& config_file);
+    Simulator() = delete;
+    Simulator(const YAML::Node& config);
     ~Simulator();
 
     void start();  // start the simulation thread

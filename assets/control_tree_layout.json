@@ -1,0 +1,552 @@
+{
+  "configById": {
+    "Plot!4d3sy64": {
+      "paths": [
+        {
+          "value": "/planning_info.current_state.velocity",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "Real-time  Velocity"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.cruise_velocity",
+          "enabled": true,
+          "color": "#f5774d",
+          "showLine": false,
+          "lineSize": 1.6,
+          "label": "Cruise Velocity"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Plot!39b98pb": {
+      "paths": [
+        {
+          "value": "/planning_info.target_accel",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Plot!4q2bvk": {
+      "paths": [
+        {
+          "value": "/planning_info.cost_time_ms",
+          "enabled": true,
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "RawMessages!u4p9rv": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/planning_info",
+      "fontSize": 14,
+      "expansion": {
+        "solution": "e",
+        "0~solution": "e",
+        "points~0~solution": "c",
+        "0~points~0~solution": "c",
+        "1~points~0~solution": "e",
+        "2~points~0~solution": "e",
+        "3~points~0~solution": "e",
+        "4~points~0~solution": "e",
+        "5~points~0~solution": "e",
+        "6~points~0~solution": "e",
+        "7~points~0~solution": "e",
+        "8~points~0~solution": "e",
+        "9~points~0~solution": "e",
+        "10~points~0~solution": "e",
+        "11~points~0~solution": "e",
+        "12~points~0~solution": "e",
+        "13~points~0~solution": "e",
+        "14~points~0~solution": "e",
+        "15~points~0~solution": "e",
+        "16~points~0~solution": "e",
+        "17~points~0~solution": "e",
+        "18~points~0~solution": "e",
+        "19~points~0~solution": "e",
+        "1~solution": "c",
+        "points~1~solution": "c",
+        "0~points~1~solution": "e",
+        "1~points~1~solution": "e",
+        "2~points~1~solution": "e",
+        "3~points~1~solution": "e",
+        "4~points~1~solution": "e",
+        "5~points~1~solution": "e",
+        "6~points~1~solution": "e",
+        "7~points~1~solution": "e",
+        "8~points~1~solution": "e",
+        "9~points~1~solution": "e",
+        "10~points~1~solution": "e",
+        "11~points~1~solution": "e",
+        "12~points~1~solution": "e",
+        "13~points~1~solution": "e",
+        "14~points~1~solution": "e",
+        "15~points~1~solution": "e",
+        "16~points~1~solution": "e",
+        "17~points~1~solution": "e",
+        "18~points~1~solution": "e",
+        "19~points~1~solution": "e",
+        "2~solution": "c",
+        "points~2~solution": "c",
+        "0~points~2~solution": "e",
+        "1~points~2~solution": "e",
+        "2~points~2~solution": "e",
+        "3~points~2~solution": "e",
+        "4~points~2~solution": "e",
+        "5~points~2~solution": "e",
+        "6~points~2~solution": "e",
+        "7~points~2~solution": "e",
+        "8~points~2~solution": "e",
+        "9~points~2~solution": "e",
+        "10~points~2~solution": "e",
+        "11~points~2~solution": "e",
+        "12~points~2~solution": "e",
+        "13~points~2~solution": "e",
+        "14~points~2~solution": "e",
+        "15~points~2~solution": "e",
+        "16~points~2~solution": "e",
+        "17~points~2~solution": "e",
+        "18~points~2~solution": "e",
+        "19~points~2~solution": "e",
+        "3~solution": "c",
+        "points~3~solution": "c",
+        "0~points~3~solution": "e",
+        "1~points~3~solution": "e",
+        "2~points~3~solution": "e",
+        "3~points~3~solution": "e",
+        "4~points~3~solution": "e",
+        "5~points~3~solution": "e",
+        "6~points~3~solution": "e",
+        "7~points~3~solution": "e",
+        "8~points~3~solution": "e",
+        "9~points~3~solution": "e",
+        "10~points~3~solution": "e",
+        "11~points~3~solution": "e",
+        "12~points~3~solution": "e",
+        "13~points~3~solution": "e",
+        "14~points~3~solution": "e",
+        "15~points~3~solution": "e",
+        "16~points~3~solution": "e",
+        "17~points~3~solution": "e",
+        "18~points~3~solution": "e",
+        "19~points~3~solution": "e",
+        "4~solution": "c",
+        "points~4~solution": "c",
+        "0~points~4~solution": "e",
+        "1~points~4~solution": "e",
+        "2~points~4~solution": "e",
+        "3~points~4~solution": "e",
+        "4~points~4~solution": "e",
+        "5~points~4~solution": "e",
+        "6~points~4~solution": "e",
+        "7~points~4~solution": "e",
+        "8~points~4~solution": "e"
+      }
+    },
+    "Gauge!3f4hld1": {
+      "path": "/planning_info.current_state.velocity",
+      "minValue": 0,
+      "maxValue": 15,
+      "colorMap": "red-yellow-green",
+      "colorMode": "colormap",
+      "gradient": [
+        "#0000ff",
+        "#ff00ff"
+      ],
+      "reverse": true,
+      "foxglovePanelTitle": "KPH [0-10]"
+    },
+    "Indicator!22e9ke7": {
+      "path": "/planning_info.target_accel",
+      "style": "bulb",
+      "fontSize": 36,
+      "fallbackColor": "#007bcc",
+      "fallbackLabel": "Cruising",
+      "rules": [
+        {
+          "operator": "<",
+          "rawValue": "-0.5",
+          "color": "#dc3545",
+          "label": "Brake"
+        },
+        {
+          "operator": ">",
+          "rawValue": "0.5",
+          "color": "#28a745",
+          "label": "Accelerate"
+        }
+      ],
+      "foxglovePanelTitle": "Accelerate Request"
+    },
+    "3D!whhden": {
+      "layers": {
+        "845139cb-26bc-40b3-8161-8ab60af4baf5": {
+          "visible": false,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "845139cb-26bc-40b3-8161-8ab60af4baf5",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "order": 1,
+          "drawBehind": false
+        }
+      },
+      "cameraState": {
+        "perspective": true,
+        "distance": 61.817392077886204,
+        "phi": 72.70263273470825,
+        "thetaOffset": 89.33841657846165,
+        "targetOffset": [
+          21.93290110613511,
+          0.21336959922779722,
+          5.21733714642028e-16
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 33,
+        "near": 10,
+        "far": 5000,
+        "logDepth": false
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "transforms": {
+          "visible": false,
+          "labelSize": 0.5,
+          "axisScale": 8
+        },
+        "syncCamera": false,
+        "enableStats": true,
+        "labelScaleFactor": 1
+      },
+      "transforms": {},
+      "topics": {
+        "/makers/ego_car": {
+          "visible": true
+        },
+        "/makers/lane_line": {
+          "visible": true
+        },
+        "/makers/trajectory": {
+          "visible": true
+        },
+        "/makers/obstacles": {
+          "visible": true
+        },
+        "/makers/reference": {
+          "visible": true
+        },
+        "/makers/pedestrians": {
+          "visible": true
+        },
+        "/makers/lane_lines": {
+          "visible": true
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "followTf": "base_link"
+    },
+    "Tab!tsp55h": {
+      "activeTabIdx": 0,
+      "tabs": [
+        {
+          "title": "Velocity",
+          "layout": "Plot!4d3sy64"
+        },
+        {
+          "title": "Acceleration",
+          "layout": "Plot!39b98pb"
+        },
+        {
+          "title": "CostTime",
+          "layout": "Plot!4q2bvk"
+        }
+      ]
+    },
+    "Plot!r7cvwb": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[0].points[:].s",
+          "enabled": true,
+          "color": "#4e98e2",
+          "lineSize": 2.5,
+          "label": "branch-0"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[1].points[:].s",
+          "enabled": true,
+          "color": "#f5774d",
+          "lineSize": 2.5,
+          "label": "branch-1"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[2].points[:].s",
+          "enabled": true,
+          "color": "#f7df71",
+          "lineSize": 2.5,
+          "label": "branch-2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[3].points[:].s",
+          "enabled": true,
+          "color": "#5cd6a9",
+          "lineSize": 2.5,
+          "label": "branch-3"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[4].points[:].s",
+          "enabled": true,
+          "color": "#61cbff",
+          "lineSize": 2.5,
+          "label": "branch-4"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[5].points[:].s",
+          "enabled": true,
+          "color": "#a395e2",
+          "lineSize": 2.5,
+          "label": "branch-5"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "index",
+      "sidebarDimension": 240,
+      "foxglovePanelTitle": "Odom Tree"
+    },
+    "Plot!lrn2kj": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[0].points[:].v",
+          "enabled": true,
+          "color": "#4e98e2",
+          "lineSize": 2.5,
+          "label": "branch-0"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[1].points[:].v",
+          "enabled": true,
+          "color": "#f5774d",
+          "lineSize": 2.5,
+          "label": "branch-1"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[2].points[:].v",
+          "enabled": true,
+          "color": "#f7df71",
+          "lineSize": 2.5,
+          "label": "branch-2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[3].points[:].v",
+          "enabled": true,
+          "color": "#5cd6a9",
+          "lineSize": 2.5,
+          "label": "branch-3"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[4].points[:].v",
+          "enabled": true,
+          "color": "#61cbff",
+          "lineSize": 2.5,
+          "label": "branch-4"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[5].points[:].v",
+          "enabled": true,
+          "color": "#a395e2",
+          "label": "branch-5",
+          "lineSize": 2.5
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "index",
+      "sidebarDimension": 240,
+      "foxglovePanelTitle": "Velocity Tree"
+    },
+    "Plot!163qiak": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[0].points[:].a",
+          "enabled": true,
+          "color": "#4e98e2",
+          "lineSize": 2.5,
+          "label": "branch-0"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[1].points[:].a",
+          "enabled": true,
+          "color": "#f5774d",
+          "label": "branch-1",
+          "lineSize": 2.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[2].points[:].a",
+          "enabled": true,
+          "color": "#f7df71",
+          "label": "branch-2",
+          "lineSize": 2.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[3].points[:].a",
+          "enabled": true,
+          "color": "#5cd6a9",
+          "label": "branch-3",
+          "lineSize": 2.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[4].points[:].a",
+          "enabled": true,
+          "color": "#61cbff",
+          "label": "branch-4",
+          "lineSize": 2.5
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/planning_info.solution[5].points[:].a",
+          "enabled": true,
+          "color": "#a395e2",
+          "label": "branch-5",
+          "lineSize": 2.5
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "index",
+      "sidebarDimension": 240,
+      "foxglovePanelTitle": "Acceleration Tree"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "drawerConfig": {
+    "tracks": []
+  },
+  "layout": {
+    "first": {
+      "first": {
+        "first": "RawMessages!u4p9rv",
+        "second": {
+          "first": "Gauge!3f4hld1",
+          "second": "Indicator!22e9ke7",
+          "direction": "column",
+          "splitPercentage": 71.60431766957034
+        },
+        "direction": "column",
+        "splitPercentage": 62.02578525584177
+      },
+      "second": "3D!whhden",
+      "direction": "row",
+      "splitPercentage": 43.154034229828845
+    },
+    "second": {
+      "first": "Tab!tsp55h",
+      "second": {
+        "first": "Plot!r7cvwb",
+        "second": {
+          "first": "Plot!lrn2kj",
+          "second": "Plot!163qiak",
+          "direction": "column"
+        },
+        "direction": "column",
+        "splitPercentage": 34.59195796930681
+      },
+      "direction": "column",
+      "splitPercentage": 27.546251080319912
+    },
+    "direction": "row",
+    "splitPercentage": 37.41463414634146
+  }
+}
