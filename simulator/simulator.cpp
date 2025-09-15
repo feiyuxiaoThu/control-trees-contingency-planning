@@ -2,13 +2,14 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:18:40
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-14 17:44:45
+ * @LastEditTime: 2025-09-16 00:50:56
  * @FilePath: /dive-into-contingency-planning/simulator/simulator.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
 
 #include "simulator.hpp"
 
+#include <filesystem>
 #include <google/protobuf/descriptor.pb.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
@@ -16,6 +17,7 @@ Simulator::Simulator(const YAML::Node& config) {
     n_pedestrians_ = config["n_pedestrians"].as<uint32_t>(4);
     p_crossing_ = config["p_crossing"].as<double>(0.05);
     lane_width_ = config["lane_width"].as<double>(3.5);
+    save_mcap_ = config["save_mcap"].as<bool>(false);
     double init_speed = config["initial_speed"].as<double>(5.0);
     ego_state_ = State{0, 0, 0, init_speed};
     observer_ = std::make_shared<PedestrianObserver>(n_pedestrians_);
@@ -28,13 +30,43 @@ Simulator::Simulator(const YAML::Node& config) {
 
 Simulator::~Simulator() { stop(); }
 
-void Simulator::start() {
+bool Simulator::start() {
     if (running_) {
-        return;
+        return true;
     }
+    if (!register_publish_channels()) {
+        LOG_ERROR(logger_, "Failed to register publish channels.");
+        return false;
+    }
+    if (save_mcap_) {
+        foxglove::McapWriterOptions mcap_options = {};
+        std::filesystem::path mcap_save_dir = std::filesystem::path(PROJECT_SOURCE_DIR) / "logs";
+        if (!std::filesystem::exists(mcap_save_dir)) {
+            if (std::filesystem::create_directories(mcap_save_dir)) {
+                LOG_INFO(logger_, "Created mcap save directory: {}", mcap_save_dir.string());
+            } else {
+                LOG_ERROR(logger_, "Failed to create mcap save directory: {}",
+                          mcap_save_dir.string());
+                return false;
+            }
+        }
+        std::string mcap_file_path =
+            mcap_save_dir / ("control_tree_" + TimeUtil::NowTimeString() + ".mcap");
+        mcap_options.path = mcap_file_path;
+        auto writer_result = foxglove::McapWriter::create(mcap_options);
+        if (!writer_result.has_value()) {
+            LOG_ERROR(logger_, "Failed to create writer: {}",
+                      foxglove::strerror(writer_result.error()));
+            return false;
+        }
+        mcap_writer_ = std::make_unique<foxglove::McapWriter>(std::move(writer_result.value()));
+    }
+
     running_ = true;
     sim_thread_ = std::thread(&Simulator::simulation_loop, this);
     LOG_INFO(logger_, "Simulator started.");
+
+    return true;
 }
 
 void Simulator::stop() {
@@ -54,11 +86,6 @@ void Simulator::set_ego_control_input(const Control& input) {
 }
 
 void Simulator::simulation_loop() {
-    if (!register_publish_channels()) {
-        LOG_ERROR(logger_, "Failed to register publish channels.");
-        return;
-    }
-
     const auto loop_start = std::chrono::steady_clock::now();
     auto next_tick = loop_start;
     while (running_) {
@@ -99,6 +126,14 @@ void Simulator::simulation_loop() {
 
         next_tick += std::chrono::milliseconds(20);
         std::this_thread::sleep_until(next_tick);
+    }
+    if (mcap_writer_) {
+        foxglove::FoxgloveError err = mcap_writer_->close();
+        if (err != foxglove::FoxgloveError::Ok) {
+            LOG_ERROR(logger_, "Failed to close writer: {}", foxglove::strerror(err));
+        } else {
+            LOG_INFO(logger_, "mcap file saved.");
+        }
     }
 }
 
@@ -281,7 +316,7 @@ foxglove::schemas::SceneUpdate Simulator::get_trajectory_scene_update(void) cons
     foxglove::schemas::Pose traj_pose =
         foxglove::schemas::Pose{.position = foxglove::schemas::Vector3{0.0, 0.0, 0.0},
                                 .orientation = foxglove::schemas::Quaternion{0.0, 0.0, 0.0, 1.0}};
-    foxglove::schemas::Color traj_color = foxglove::schemas::Color{0.38, 0.8, 1.0, 0.9};
+    foxglove::schemas::Color traj_color = foxglove::schemas::Color{0.0, 0.4, 0.75, 0.9};
 
     {
         std::shared_lock lock(planning_info_mutex_);
@@ -298,7 +333,7 @@ foxglove::schemas::SceneUpdate Simulator::get_trajectory_scene_update(void) cons
             foxglove::schemas::LinePrimitive traj_line;
             traj_line.type = foxglove::schemas::LinePrimitive::LineType::LINE_STRIP;
             traj_line.pose = traj_pose;
-            traj_line.thickness = 1.0;
+            traj_line.thickness = 1.35;
             traj_line.scale_invariant = false;
             traj_line.color = traj_color;
             for (int i = 0; i < speed_profile.points_size(); ++i) {

@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:18:40
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-14 17:15:27
+ * @LastEditTime: 2025-09-16 00:21:11
  * @FilePath: /dive-into-contingency-planning/simulator/simulator.hpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -12,6 +12,7 @@
 #include "common/common.hpp"
 #include "common/protos/planning_info.pb.h"
 #include "foxglove/foxglove.hpp"
+#include "foxglove/mcap.hpp"
 #include "foxglove/server.hpp"
 #include "simulator/pedestrian.hpp"
 
@@ -30,7 +31,7 @@ class Simulator {
     Simulator(const YAML::Node& config);
     ~Simulator();
 
-    void start();  // start the simulation thread
+    bool start();  // start the simulation thread
     void stop();   // stop the simulation thread
 
     void set_ego_control_input(const Control& input);
@@ -70,12 +71,14 @@ class Simulator {
     double p_crossing_{0.15};
     double lane_width_{3.5};
 
-    std::unique_ptr<foxglove::WebSocketServer> socket_server_;
-    std::unique_ptr<foxglove::RawChannel> loop_runtime_channel_;
-    std::unique_ptr<foxglove::schemas::SceneUpdateChannel> ego_car_channel_;
-    std::unique_ptr<foxglove::schemas::SceneUpdateChannel> pedestrians_channel_;
-    std::unique_ptr<foxglove::schemas::SceneUpdateChannel> lane_lines_channel_;
-    std::unique_ptr<foxglove::schemas::SceneUpdateChannel> trajectory_channel_;
-    std::unique_ptr<foxglove::schemas::FrameTransformChannel> transform_channel_;
-    std::unique_ptr<foxglove::RawChannel> planning_info_channel_;
+    bool save_mcap_{false};
+    std::unique_ptr<foxglove::McapWriter> mcap_writer_{nullptr};
+    std::unique_ptr<foxglove::WebSocketServer> socket_server_{nullptr};
+    std::unique_ptr<foxglove::RawChannel> loop_runtime_channel_{nullptr};
+    std::unique_ptr<foxglove::schemas::SceneUpdateChannel> ego_car_channel_{nullptr};
+    std::unique_ptr<foxglove::schemas::SceneUpdateChannel> pedestrians_channel_{nullptr};
+    std::unique_ptr<foxglove::schemas::SceneUpdateChannel> lane_lines_channel_{nullptr};
+    std::unique_ptr<foxglove::schemas::SceneUpdateChannel> trajectory_channel_{nullptr};
+    std::unique_ptr<foxglove::schemas::FrameTransformChannel> transform_channel_{nullptr};
+    std::unique_ptr<foxglove::RawChannel> planning_info_channel_{nullptr};
 };

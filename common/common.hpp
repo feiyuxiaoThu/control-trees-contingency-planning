@@ -14,6 +14,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <iomanip>
 #include <spdlog/spdlog.h>
 
 #define LOG_TRACE(logger, ...)    SPDLOG_LOGGER_CALL(logger, spdlog::level::trace, __VA_ARGS__)
@@ -73,6 +74,15 @@ class TimeUtil {
         ts.sec = static_cast<uint32_t>(sec);
         ts.nsec = static_cast<uint32_t>(nsec);
         return ts;
+    }
+
+    static std::string NowTimeString() {
+        using namespace std::chrono;
+        auto tp = system_clock::now();
+        auto t = system_clock::to_time_t(tp);
+        std::ostringstream oss;
+        oss << std::put_time(std::localtime(&t), "%Y-%m-%d-%H-%M-%S");
+        return oss.str();
     }
 };
 

@@ -2,7 +2,7 @@
  * @Author: puyu yu.pu@qq.com
  * @Date: 2025-08-03 00:23:02
  * @LastEditors: puyu yu.pu@qq.com
- * @LastEditTime: 2025-09-14 17:40:44
+ * @LastEditTime: 2025-09-16 00:04:28
  * @FilePath: /dive-into-contingency-planning/planning_node.cpp
  * Copyright (c) 2025 by puyu, All Rights Reserved.
  */
@@ -12,6 +12,8 @@
 
 #include <getopt.h>
 #include <yaml-cpp/yaml.h>
+
+#include <csignal>
 
 int main(int argc, char** argv) {
     int opt;
@@ -42,6 +44,14 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    std::atomic_bool done = false;
+    static std::function<void()> sigint_handler = [&] { done = true; };
+    std::signal(SIGINT, [](int) {
+        if (sigint_handler) {
+            sigint_handler();
+        }
+    });
+
     double max_driving_distance = config["max_driving_distance"].as<double>(10000);
     double max_simulation_time = config["max_simulation_time"].as<double>(300);
 
@@ -52,7 +62,7 @@ int main(int argc, char** argv) {
 
     const auto main_thread_start = std::chrono::steady_clock::now();
     auto next_tick = main_thread_start;
-    while (true) {
+    while (!done) {
         auto ego_state = simulator.get_ego_state();
         auto pedestrians = simulator.get_pedestrians();
         auto [time, cost] = planner.plan(ego_state, pedestrians);

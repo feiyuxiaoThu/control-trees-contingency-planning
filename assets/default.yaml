@@ -16,3 +16,4 @@ simulator:
   lane_width: 3.5
   init_speed: 10.0
   log_level: "debug"
+  save_mcap: false
