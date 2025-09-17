@@ -50,11 +50,3 @@ class QPTreeSolverDec : public QPTreeSolverBase {
 
     DecOptConfig options;
 };
-
-// std::vector<arr> get_compressed_masks(int n_steps, int dim,
-//                                       const std::vector<std::vector<int>>& varss,
-//                                       std::vector<int>& var, std::vector<int>& global_to_branch);
-// std::vector<std::vector<double>> get_compressed_scales(
-//     const std::vector<std::vector<double>>& scaless);
-// std::unordered_map<int, Constraints> get_compressed_constraints(
-//     const Constraints& k, const std::vector<int>& var, const std::vector<int>& global_to_branch);
