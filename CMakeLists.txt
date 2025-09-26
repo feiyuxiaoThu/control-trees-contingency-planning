@@ -93,7 +93,7 @@ target_link_libraries(planning_node
         simulator
         planning
         spdlog::spdlog
-        yaml-cpp::yaml-cpp
+        yaml-cpp
         foxglove_sdk
         Threads::Threads
         dl

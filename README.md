@@ -10,7 +10,7 @@ This repository implements contingency planning for adaptive cruise control in p
 
 ## 1. Prerequisites
 
-- **Dependencies:** [spdlog](https://github.com/gabime/spdlog), [yaml-cpp](https://github.com/jbeder/yaml-cpp), [protobuf](https://github.com/protocolbuffers/protobuf), [eigen]( http://eigen.tuxfamily.org/), [osqp](https://github.com/osqp/osqp)(v0.6.2), [osqp-eigen](https://github.com/robotology/osqp-eigen)
+- **Dependencies:** [spdlog](https://github.com/gabime/spdlog), [yaml-cpp](https://github.com/jbeder/yaml-cpp), [protobuf](https://github.com/protocolbuffers/protobuf), [eigen]( http://eigen.tuxfamily.org/), [osqp](https://github.com/osqp/osqp)(v0.6.2), [osqp-eigen](https://github.com/robotology/osqp-eigen), [open-blas]()
 - **Visualization:** Download [foxglove studio](https://foxglove.dev/download) to local, or use the [web application](app.foxglove.dev) in a browser
 - Tested on WSL2 Ubuntu 20.04🐧
 
